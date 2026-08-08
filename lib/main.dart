@@ -5,14 +5,21 @@ import 'screens/login_screen.dart';
 import 'screens/otp_verification_screen.dart';
 import 'screens/registration_screen.dart';
 import 'screens/home_dashboard_screen.dart';
+
+
 import 'screens/profile_management_screen.dart';
 import 'screens/geofencing_screen.dart';
 import 'screens/fake_call_generator_screen.dart';
 import 'screens/area_safety_index_screen.dart';
 import 'screens/nearby_emergency_services_screen.dart';
 
-void main() {
+import 'services/user_state.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load persistent registered accounts & active session from SharedPreferences
+  await UserState.instance.loadFromStorage();
 
   // Lock to portrait orientation
   SystemChrome.setPreferredOrientations([
@@ -40,40 +47,24 @@ class SafeGuardApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
 
-      // ── Initial route ────────────────────────────────────────────────────
-      initialRoute: '/login',
+      initialRoute: UserState.instance.isLoggedIn ? '/home' : '/login',
 
-      // ── Named routes ─────────────────────────────────────────────────────
-      // Navigation Flow:
-      //   Login → OTP → Home
-      //   Login → (Sign Up) → Registration → Login
-      //   Home → Profile / Geofencing / Fake Call / Safety Index / Emergency Services
-      routes: {
-        '/login': (ctx) => const LoginScreen(),
-        '/otp': (ctx) => const OtpVerificationScreen(),
-        '/register': (ctx) => const RegistrationScreen(),
-        '/home': (ctx) => const HomeDashboardScreen(),
-        '/profile': (ctx) => const ProfileManagementScreen(),
-        '/geofencing': (ctx) => const GeofencingScreen(),
-        '/fake-call': (ctx) => const FakeCallGeneratorScreen(),
-        '/safety-index': (ctx) => const AreaSafetyIndexScreen(),
-        '/emergency-services': (ctx) => const NearbyEmergencyServicesScreen(),
-      },
-
-      // Custom page transition — subtle fade+slide matching mobile feel
       onGenerateRoute: (settings) {
-        final builder = {
+        final Map<String, WidgetBuilder> routes = {
           '/login': (ctx) => const LoginScreen(),
           '/otp': (ctx) => const OtpVerificationScreen(),
           '/register': (ctx) => const RegistrationScreen(),
+
+
           '/home': (ctx) => const HomeDashboardScreen(),
           '/profile': (ctx) => const ProfileManagementScreen(),
           '/geofencing': (ctx) => const GeofencingScreen(),
           '/fake-call': (ctx) => const FakeCallGeneratorScreen(),
           '/safety-index': (ctx) => const AreaSafetyIndexScreen(),
           '/emergency-services': (ctx) => const NearbyEmergencyServicesScreen(),
-        }[settings.name];
+        };
 
+        final builder = routes[settings.name];
         if (builder == null) return null;
 
         return PageRouteBuilder(
@@ -90,9 +81,10 @@ class SafeGuardApp extends StatelessWidget {
 
             return SlideTransition(position: offsetAnim, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 300),
+          transitionDuration: const Duration(milliseconds: 250),
         );
       },
     );
   }
 }
+

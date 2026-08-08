@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../services/user_state.dart';
 
-/// Profile Management Screen — Figma node 1:253 (mislabeled as Fake Call Generator in MCP output)
+/// Profile Management Screen — Figma node 1:253
 /// AppBar with back arrow, editable profile fields, emergency contacts, Update + Logout buttons
 class ProfileManagementScreen extends StatefulWidget {
   const ProfileManagementScreen({super.key});
@@ -13,17 +14,40 @@ class ProfileManagementScreen extends StatefulWidget {
 }
 
 class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
-  // Profile data (placeholder)
-  String _firstName = 'Alex';
-  String _lastName = 'Mercer';
-  String _phone = '+1 (555) 019-2834';
-  String _bloodGroup = 'O Positive';
+  late String _userName;
+  late String _phone;
+  late String _dob;
+  late String _bloodGroup;
+  late List<EmergencyContact> _contacts;
 
-  // Emergency contacts list (Figma node 1:391)
-  final List<Map<String, String>> _contacts = [
-    {'name': 'Sarah Mercer', 'relation': 'Sister', 'phone': '+1 (555) 923-1122'},
-    {'name': 'David Chen', 'relation': 'Spouse', 'phone': '+1 (555) 834-0991'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final user = UserState.instance;
+    _userName = user.name;
+    _phone = user.phone;
+    _dob = user.dateOfBirth;
+    _bloodGroup = user.bloodGroup;
+    _contacts = List.from(user.emergencyContacts);
+  }
+
+  void _saveProfileChanges() {
+    UserState.instance.updateUserProfile(
+      newName: _userName,
+      newPhone: _phone,
+      newEmail: UserState.instance.email,
+      newDob: _dob,
+      newBloodGroup: _bloodGroup,
+      newContacts: _contacts,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Profile updated successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +162,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             child: Column(
               children: [
                 Text(
-                  '$_firstName $_lastName',
+                  _userName,
                   style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -146,7 +170,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Premium Member',
+                  'Verified User',
                   style: GoogleFonts.inter(
                       fontSize: 14, color: AppTheme.onSurfaceLight),
                 ),
@@ -170,7 +194,6 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                   fontWeight: FontWeight.w600,
                   color: AppTheme.onBackground)),
         ),
-        // Grouped card container (Figma node 1:343 — #edeeef with gap-8 padding)
         Container(
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
@@ -185,19 +208,27 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
           padding: const EdgeInsets.all(8),
           child: Column(
             children: [
-              _profileRow('First Name', _firstName,
-                  onEdit: () => _editField(context, 'First Name', _firstName,
-                      (v) => setState(() => _firstName = v))),
-              const SizedBox(height: 8),
-              _profileRow('Last Name', _lastName,
-                  onEdit: () => _editField(context, 'Last Name', _lastName,
-                      (v) => setState(() => _lastName = v))),
+              _profileRow('User Name', _userName,
+                  onEdit: () => _editField(context, 'User Name', _userName,
+                      (v) => setState(() {
+                        _userName = v;
+                        _saveProfileChanges();
+                      }))),
               const SizedBox(height: 8),
               _profileRow('Phone Number', _phone,
                   onEdit: () => _editField(context, 'Phone Number', _phone,
-                      (v) => setState(() => _phone = v))),
+                      (v) => setState(() {
+                        _phone = v;
+                        _saveProfileChanges();
+                      }))),
               const SizedBox(height: 8),
-              // Blood Group row — highlighted in red tint (Figma node 1:371)
+              _profileRow('Date of Birth', _dob,
+                  onEdit: () => _editField(context, 'Date of Birth', _dob,
+                      (v) => setState(() {
+                        _dob = v;
+                        _saveProfileChanges();
+                      }))),
+              const SizedBox(height: 8),
               _bloodGroupRow(),
             ],
           ),
@@ -205,6 +236,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
       ],
     );
   }
+
 
   Widget _profileRow(String label, String value, {required VoidCallback onEdit}) {
     return Container(
@@ -254,7 +286,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.sosRedContainer.withOpacity(0.2),
+        color: AppTheme.sosRedContainer.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -325,7 +357,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                   color: AppTheme.primaryLight,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text('${_contacts.length} of 5',
+                child: Text('${_contacts.length} of 3 (Min 2)',
                     style: GoogleFonts.inter(
                         fontSize: 12,
                         color: AppTheme.primary,
@@ -340,45 +372,61 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _contactCard(c, onDelete: () {
-              setState(() => _contacts.removeAt(i));
+              if (_contacts.length > 2) {
+                setState(() {
+                  _contacts.removeAt(i);
+                  _saveProfileChanges();
+                });
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Minimum 2 emergency contacts are required.')),
+                );
+              }
             }),
           );
         }),
         // Add contact button (Figma node 1:422)
-        GestureDetector(
-          onTap: () => setState(() => _contacts.add({
-                'name': 'New Contact',
-                'relation': 'Friend',
-                'phone': '+1 (555) 000-0000',
-              })),
-          child: Container(
-            width: double.infinity,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppTheme.divider,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.person_add_rounded,
-                    color: AppTheme.onSurfaceMid, size: 20),
-                const SizedBox(width: 8),
-                Text('Add Emergency Contact',
-                    style: GoogleFonts.inter(
-                        fontSize: 16, color: AppTheme.onSurfaceMid)),
-              ],
+        if (_contacts.length < 3)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _contacts.add(EmergencyContact(
+                  name: 'New Contact',
+                  relation: 'Friend',
+                  phone: '+919876543210',
+                ));
+                _saveProfileChanges();
+              });
+            },
+            child: Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppTheme.divider,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_add_rounded,
+                      color: AppTheme.onSurfaceMid, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Add Emergency Contact (${_contacts.length}/3)',
+                      style: GoogleFonts.inter(
+                          fontSize: 16, color: AppTheme.onSurfaceMid)),
+                ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }
 
-  Widget _contactCard(Map<String, String> contact,
+
+  Widget _contactCard(EmergencyContact contact,
       {required VoidCallback onDelete}) {
-    final initial = contact['name']!.isNotEmpty
-        ? contact['name']![0].toUpperCase()
+    final initial = contact.name.isNotEmpty
+        ? contact.name[0].toUpperCase()
         : 'C';
     return Container(
       padding: const EdgeInsets.all(16),
@@ -394,7 +442,6 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
       ),
       child: Row(
         children: [
-          // Avatar circle with initial (Figma node 1:393)
           Container(
             width: 48,
             height: 48,
@@ -412,31 +459,34 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(contact['name']!,
+                Text(contact.name,
                     style: GoogleFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                         color: AppTheme.onBackground)),
                 const SizedBox(height: 2),
                 Text(
-                    '${contact['relation']} • ${contact['phone']}',
+                    '${contact.relation} • ${contact.phone}',
                     style: GoogleFonts.inter(
                         fontSize: 13, color: AppTheme.onSurfaceLight),
                     overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
-          // Edit button (Figma node 1:401)
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: AppTheme.cardBg),
-            child: const Icon(Icons.edit_rounded,
-                size: 16, color: AppTheme.onSurfaceMid),
+          GestureDetector(
+            onTap: () {
+              _editContactDialog(contact);
+            },
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                  shape: BoxShape.circle, color: AppTheme.cardBg),
+              child: const Icon(Icons.edit_rounded,
+                  size: 16, color: AppTheme.onSurfaceMid),
+            ),
           ),
           const SizedBox(width: 8),
-          // Delete button (Figma node 1:404 — #ffdad6 circle)
           GestureDetector(
             onTap: onDelete,
             child: Container(
@@ -453,18 +503,47 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
+  void _editContactDialog(EmergencyContact contact) {
+    final nameCtrl = TextEditingController(text: contact.name);
+    final relCtrl = TextEditingController(text: contact.relation);
+    final phoneCtrl = TextEditingController(text: contact.phone);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Emergency Contact'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
+            TextField(controller: relCtrl, decoration: const InputDecoration(labelText: 'Relation')),
+            TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                contact.name = nameCtrl.text.trim();
+                contact.relation = relCtrl.text.trim();
+                contact.phone = phoneCtrl.text.trim();
+                _saveProfileChanges();
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildActions(BuildContext context) {
     return Column(
       children: [
-        // Update Profile button (Figma node 1:428 — #005bbf)
         FilledButton.icon(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Profile updated! (Demo)',
-                  style: GoogleFonts.inter(color: Colors.white)),
-              backgroundColor: AppTheme.primary,
-            ),
-          ),
+          onPressed: _saveProfileChanges,
           icon: const Icon(Icons.save_rounded, size: 20),
           label: const Text('Update Profile'),
           style: FilledButton.styleFrom(
@@ -473,6 +552,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             shape: const StadiumBorder(),
           ),
         ),
+
         const SizedBox(height: 16),
         // Log Out button (Figma node 1:433 — #edeeef bg)
         FilledButton.icon(
