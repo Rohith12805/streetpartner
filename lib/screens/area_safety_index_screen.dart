@@ -22,12 +22,13 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
   void initState() {
     super.initState();
     _animController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800));
-    _progressAnim =
-        Tween<double>(begin: 0, end: _safetyScore).animate(
-          CurvedAnimation(
-              parent: _animController, curve: Curves.easeOut),
-        );
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _progressAnim = Tween<double>(
+      begin: 0,
+      end: _safetyScore,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
   }
 
@@ -68,18 +69,25 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
               height: 24,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.primaryLight]),
+                  colors: [AppTheme.primary, AppTheme.primaryLight],
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.shield_rounded,
-                  color: Colors.white, size: 14),
+              child: const Icon(
+                Icons.shield_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
             const SizedBox(width: 8),
-            Text('Area Safety Index',
-                style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.onBackground)),
+            Text(
+              'Area Safety Index',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.onBackground,
+              ),
+            ),
           ],
         ),
       ),
@@ -89,15 +97,22 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
             const SizedBox(height: 32),
 
             // ── Title (Figma node 1:573) ───────────────────────────────────
-            Text('Area Safety Index',
-                style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.onBackground)),
+            Text(
+              'Area Safety Index',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.onBackground,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text('Current Location Safety Score',
-                style: GoogleFonts.inter(
-                    fontSize: 15, color: AppTheme.onSurfaceMid)),
+            Text(
+              'Current Location Safety Score',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: AppTheme.onSurfaceMid,
+              ),
+            ),
             const SizedBox(height: 40),
 
             // ── Circular Progress Indicator (Figma node 1:600) ────────────
@@ -107,10 +122,9 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
 
             // ── Score label ────────────────────────────────────────────────
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color: _scoreColor.withOpacity(0.1),
+                color: _scoreColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -164,7 +178,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primary.withOpacity(0.1),
+                      color: AppTheme.primary.withValues(alpha: 0.1),
                       blurRadius: 24,
                       spreadRadius: 8,
                     ),
@@ -212,7 +226,10 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
         borderRadius: BorderRadius.circular(24),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x0D000000), blurRadius: 2, offset: Offset(0, 1))
+            color: Color(0x0D000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Column(
@@ -220,11 +237,14 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
           // Header row with Simulate button (Figma node 1:580)
           Row(
             children: [
-              Text('Report Condition',
-                  style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.onBackground)),
+              Text(
+                'Report Condition',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.onBackground,
+                ),
+              ),
               const Spacer(),
               GestureDetector(
                 onTap: () {
@@ -237,21 +257,30 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
                     ..reset()
                     ..forward();
                   _progressAnim = Tween<double>(begin: 0, end: _safetyScore)
-                      .animate(CurvedAnimation(
-                          parent: _animController, curve: Curves.easeOut));
+                      .animate(
+                        CurvedAnimation(
+                          parent: _animController,
+                          curve: Curves.easeOut,
+                        ),
+                      );
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.1),
+                    color: AppTheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text('Simulate',
-                      style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AppTheme.primary,
-                          fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Simulate',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -261,8 +290,11 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
           // Slider (Figma node 1:585 — hazardous ↔ secure)
           Row(
             children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: AppTheme.sosRed, size: 20),
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: AppTheme.sosRed,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: SliderTheme(
@@ -270,7 +302,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
                     activeTrackColor: _scoreColor,
                     inactiveTrackColor: AppTheme.divider,
                     thumbColor: _scoreColor,
-                    overlayColor: _scoreColor.withOpacity(0.1),
+                    overlayColor: _scoreColor.withValues(alpha: 0.1),
                     trackHeight: 6,
                   ),
                   child: Slider(
@@ -280,18 +312,23 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
                       _animController
                         ..reset()
                         ..forward();
-                      _progressAnim =
-                          Tween<double>(begin: 0, end: _safetyScore)
-                              .animate(CurvedAnimation(
-                                  parent: _animController,
-                                  curve: Curves.easeOut));
+                      _progressAnim = Tween<double>(begin: 0, end: _safetyScore)
+                          .animate(
+                            CurvedAnimation(
+                              parent: _animController,
+                              curve: Curves.easeOut,
+                            ),
+                          );
                     },
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.verified_user_rounded,
-                  color: AppTheme.green, size: 20),
+              const Icon(
+                Icons.verified_user_rounded,
+                color: AppTheme.green,
+                size: 20,
+              ),
             ],
           ),
 
@@ -300,12 +337,20 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Hazardous',
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: AppTheme.onSurfaceMid)),
-                Text('Secure',
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: AppTheme.onSurfaceMid)),
+                Text(
+                  'Hazardous',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppTheme.onSurfaceMid,
+                  ),
+                ),
+                Text(
+                  'Secure',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppTheme.onSurfaceMid,
+                  ),
+                ),
               ],
             ),
           ),
@@ -323,8 +368,9 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                    'Safety report submitted: ${(_safetyScore * 100).round()}% — $_scoreLabel (Demo)',
-                    style: GoogleFonts.inter(color: Colors.white)),
+                  'Safety report submitted: ${(_safetyScore * 100).round()}% — $_scoreLabel (Demo)',
+                  style: GoogleFonts.inter(color: Colors.white),
+                ),
                 backgroundColor: _scoreColor,
               ),
             );
@@ -335,8 +381,10 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
             backgroundColor: AppTheme.primary,
             minimumSize: const Size.fromHeight(56),
             shape: const StadiumBorder(),
-            textStyle:
-                GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500),
+            textStyle: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -349,9 +397,10 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen>
             shape: const StadiumBorder(),
             side: const BorderSide(color: AppTheme.divider),
           ),
-          child: Text('Back',
-              style: GoogleFonts.inter(
-                  fontSize: 16, fontWeight: FontWeight.w500)),
+          child: Text(
+            'Back',
+            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
         ),
       ],
     );

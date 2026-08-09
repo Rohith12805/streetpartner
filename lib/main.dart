@@ -1,25 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
-import 'screens/otp_verification_screen.dart';
-import 'screens/registration_screen.dart';
 import 'screens/home_dashboard_screen.dart';
 
-
+import 'screens/registration_screen.dart';
 import 'screens/profile_management_screen.dart';
 import 'screens/geofencing_screen.dart';
 import 'screens/fake_call_generator_screen.dart';
 import 'screens/area_safety_index_screen.dart';
 import 'screens/nearby_emergency_services_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'services/user_state.dart';
+bool _firebaseInitialized = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load persistent registered accounts & active session from SharedPreferences
-  await UserState.instance.loadFromStorage();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    _firebaseInitialized = true;
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
 
   // Lock to portrait orientation
   SystemChrome.setPreferredOrientations([
@@ -28,11 +36,13 @@ void main() async {
   ]);
 
   // Use edge-to-edge system UI with transparent status bar
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.transparent,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+    ),
+  );
 
   runApp(const SafeGuardApp());
 }
@@ -42,21 +52,60 @@ class SafeGuardApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!_firebaseInitialized) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: Colors.red.shade900,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.white,
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Firebase Configuration Missing',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'It looks like Firebase has not been configured for this project yet. Please run the following command in your terminal:\n\nflutterfire configure\n\nAnd ensure google-services.json is added for Android.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'SafeGuard — Women Safety',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
 
-      initialRoute: UserState.instance.isLoggedIn ? '/home' : '/login',
+      initialRoute: '/',
 
       onGenerateRoute: (settings) {
         final Map<String, WidgetBuilder> routes = {
+          '/': (ctx) => const AuthWrapper(),
           '/login': (ctx) => const LoginScreen(),
-          '/otp': (ctx) => const OtpVerificationScreen(),
-          '/register': (ctx) => const RegistrationScreen(),
-
+          '/registration': (ctx) => const RegistrationScreen(),
 
           '/home': (ctx) => const HomeDashboardScreen(),
+          '/dashboard': (ctx) => const HomeDashboardScreen(),
           '/profile': (ctx) => const ProfileManagementScreen(),
           '/geofencing': (ctx) => const GeofencingScreen(),
           '/fake-call': (ctx) => const FakeCallGeneratorScreen(),
@@ -75,8 +124,10 @@ class SafeGuardApp extends StatelessWidget {
             const end = Offset.zero;
             const curve = Curves.easeInOutCubic;
 
-            final tween = Tween(begin: begin, end: end)
-                .chain(CurveTween(curve: curve));
+            final tween = Tween(
+              begin: begin,
+              end: end,
+            ).chain(CurveTween(curve: curve));
             final offsetAnim = anim.drive(tween);
 
             return SlideTransition(position: offsetAnim, child: child);
@@ -88,3 +139,44 @@ class SafeGuardApp extends StatelessWidget {
   }
 }
 
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasData && snapshot.data != null) {
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .doc(snapshot.data!.uid)
+                .get(),
+            builder: (context, docSnapshot) {
+              if (docSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (docSnapshot.hasData && docSnapshot.data!.exists) {
+                final data = docSnapshot.data!.data() as Map<String, dynamic>?;
+                if (data?['isProfileComplete'] == true) {
+                  return const HomeDashboardScreen();
+                }
+              }
+              return const RegistrationScreen();
+            },
+          );
+        }
+        return const LoginScreen();
+      },
+    );
+  }
+}

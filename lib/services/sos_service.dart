@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/services.dart';
 
 class SosResult {
@@ -23,39 +24,52 @@ class SosResult {
       smsStatus: map['smsStatus'] as String? ?? 'Unknown',
       latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (map['longitude'] as num?)?.toDouble() ?? 0.0,
-      timestamp: (map['timestamp'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      timestamp:
+          (map['timestamp'] as num?)?.toInt() ??
+          DateTime.now().millisecondsSinceEpoch,
     );
   }
 }
 
 class SosService {
-  static const MethodChannel _channel =
-      MethodChannel('com.example.streetpartner/sos_channel');
+  static const MethodChannel _channel = MethodChannel(
+    'com.example.streetpartner/sos_channel',
+  );
+  static const EventChannel _eventChannel = EventChannel(
+    'com.example.streetpartner/sos_timer_events',
+  );
 
-  static Function()? _onShakeCallback;
-
-  /// Registers a callback that triggers when the device is shaken (3-shake gesture)
-  static void initializeShakeHandler(Function() onShake) {
-    _onShakeCallback = onShake;
-    _channel.setMethodCallHandler((call) async {
-      if (call.method == 'onShakeDetected') {
-        _onShakeCallback?.call();
-      }
-    });
-  }
-
-  /// Plays emergency alarm siren sound
-  static Future<void> playAlarmSound() async {
+  /// Starts the native Android Foreground Service.
+  static Future<void> startSosService({
+    required List<String> phoneNumbers,
+    required String message,
+  }) async {
     try {
-      await _channel.invokeMethod('playAlarmSound');
+      await _channel.invokeMethod('startForegroundService', {
+        'phoneNumbers': phoneNumbers,
+        'message': message,
+      });
     } catch (_) {}
   }
 
-  /// Stops emergency alarm siren sound
-  static Future<void> stopAlarmSound() async {
+  /// Triggers the 10-second SOS countdown manually.
+  static Future<void> triggerSosCountdown() async {
     try {
-      await _channel.invokeMethod('stopAlarmSound');
+      await _channel.invokeMethod('triggerSosCountdown');
     } catch (_) {}
+  }
+
+  /// Stops the ongoing SOS countdown and resets the notification.
+  static Future<void> stopSosCountdown() async {
+    try {
+      await _channel.invokeMethod('stopSosCountdown');
+    } catch (_) {}
+  }
+
+  /// Gets a stream of timer ticks from the native foreground service.
+  /// Yields remaining seconds, or -1 if stopped/finished.
+  static Stream<int> get timerTickStream {
+    return _eventChannel.receiveBroadcastStream().map((event) => event as int);
   }
 
   /// Triggers an emergency SOS alert by making native platform calls for
@@ -66,14 +80,12 @@ class SosService {
     bool callEmergency = true,
   }) async {
     try {
-      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'triggerSosAlert',
-        {
-          'phoneNumbers': phoneNumbers,
-          'message': message,
-          'callEmergency': callEmergency,
-        },
-      );
+      final result = await _channel
+          .invokeMethod<Map<dynamic, dynamic>>('triggerSosAlert', {
+            'phoneNumbers': phoneNumbers,
+            'message': message,
+            'callEmergency': callEmergency,
+          });
 
       if (result != null) {
         return SosResult.fromMap(result);
@@ -109,7 +121,9 @@ class SosService {
   /// Fetches current device GPS coordinates from native Android LocationManager.
   static Future<Map<String, dynamic>?> getDeviceLocation() async {
     try {
-      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('getDeviceLocation');
+      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'getDeviceLocation',
+      );
       if (result != null) {
         return Map<String, dynamic>.from(result);
       }
@@ -122,7 +136,9 @@ class SosService {
   /// Checks if required permissions (SMS, Call, Location) are granted.
   static Future<Map<String, bool>> checkPermissions() async {
     try {
-      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('checkPermissions');
+      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'checkPermissions',
+      );
       if (result != null) {
         return Map<String, bool>.from(result);
       }
@@ -131,6 +147,7 @@ class SosService {
       'sms': false,
       'call': false,
       'location': false,
+      'notification': false,
       'allGranted': false,
     };
   }

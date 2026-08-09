@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/feature_card.dart';
 import '../services/sos_service.dart';
-import '../services/user_state.dart';
 
 /// Home Dashboard — Figma node 1:149
 /// AppBar with logo + profile avatar, large SOS button centered, 2x2 feature grid
@@ -17,38 +18,102 @@ class HomeDashboardScreen extends StatefulWidget {
 }
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
-  bool _isSosActive = false;
-  bool _isSosLoading = false;
-  String _lastStatusMessage = 'Guardian Network Active';
-
   bool _isModalOpen = false;
+  int _secondsLeft = 10;
+
+  StreamSubscription<int>? _timerSubscription;
+  StateSetter? _modalSetState;
 
   @override
   void initState() {
     super.initState();
-    // Auto-request Android OS permissions (CALL_PHONE, SEND_SMS, GPS Location)
-    SosService.requestPermissions();
+    // Auto-request Android OS permissions (CALL_PHONE, SEND_SMS, GPS Location, Notifications)
+    SosService.requestPermissions().then((_) {
+      _initializeSosService();
+    });
 
-    // Register native 3-shake gesture listener
-    SosService.initializeShakeHandler(() {
-      if (!_isModalOpen && mounted) {
-        _showSosCountdownDialog(isShakeTriggered: true);
+    // Listen to timer ticks from Native Foreground Service
+    _timerSubscription = SosService.timerTickStream.listen((tick) {
+      if (!mounted) return;
+
+      if (tick > 0) {
+        _secondsLeft = tick;
+        if (!_isModalOpen) {
+          _showSosCountdownDialog();
+        } else {
+          _modalSetState?.call(() {});
+        }
+      } else if (tick == 0) {
+        // Countdown finished, alert is dispatching
+        if (_isModalOpen) {
+          _isModalOpen = false;
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        _onSosDispatched();
+      } else if (tick == -1) {
+        // Countdown cancelled
+        if (_isModalOpen) {
+          _isModalOpen = false;
+          Navigator.of(context, rootNavigator: true).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('SOS Alert & Alarm Siren cancelled.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       }
     });
   }
 
-  void _onSosPressed() {
-    _showSosCountdownDialog(isShakeTriggered: false);
+  @override
+  void dispose() {
+    _timerSubscription?.cancel();
+    super.dispose();
   }
 
-  void _showSosCountdownDialog({bool isShakeTriggered = false}) {
+  Future<void> _initializeSosService() async {
+    List<String> targetNumbers = ['112', '911'];
+    String userName = 'Unknown User';
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          final contacts =
+              (data['emergencyContacts'] as List<dynamic>?)
+                  ?.map((e) => e.toString())
+                  .toList() ??
+              [];
+          if (contacts.isNotEmpty) {
+            targetNumbers = contacts;
+          }
+          userName = data['fullName'] ?? user.displayName ?? 'Unknown User';
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching user data for SOS: $e');
+    }
+
+    SosService.startSosService(
+      phoneNumbers: targetNumbers,
+      message: 'EMERGENCY SOS: $userName needs immediate assistance!',
+    );
+  }
+
+  void _onSosPressed() {
+    // Manually trigger the native foreground countdown
+    SosService.triggerSosCountdown();
+  }
+
+  void _showSosCountdownDialog() {
     if (_isModalOpen) return;
     _isModalOpen = true;
-    int secondsLeft = 10;
-    Timer? countdownTimer;
-
-    // Start playing loud emergency alarm siren sound
-    SosService.playAlarmSound();
 
     showDialog(
       context: context,
@@ -56,19 +121,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            countdownTimer ??= Timer.periodic(const Duration(seconds: 1), (t) {
-              if (secondsLeft > 1) {
-                setModalState(() {
-                  secondsLeft--;
-                });
-              } else {
-                t.cancel();
-                _isModalOpen = false;
-                SosService.stopAlarmSound();
-                Navigator.of(dialogCtx).pop();
-                _dispatchSosAlert();
-              }
-            });
+            _modalSetState = setModalState;
 
             return AlertDialog(
               backgroundColor: const Color(0xFF1E293B),
@@ -78,11 +131,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ),
               title: Row(
                 children: [
-                  const Icon(Icons.volume_up_rounded, color: AppTheme.sosRed, size: 28),
+                  const Icon(
+                    Icons.volume_up_rounded,
+                    color: AppTheme.sosRed,
+                    size: 28,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      isShakeTriggered ? 'SHAKE DETECTED! SOS' : 'EMERGENCY SOS',
+                      'EMERGENCY SOS',
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -96,10 +153,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isShakeTriggered
-                        ? '3-Shake gesture detected! Siren sounding.'
-                        : 'Emergency alarm sounding.',
-                    style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
+                    'Emergency alarm sounding.',
+                    style: GoogleFonts.inter(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -112,7 +170,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      '$secondsLeft',
+                      '$_secondsLeft',
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 38,
@@ -122,25 +180,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'If shaken accidentally, tap STOP SOS within 10s to stop siren, calls, and SMS messages.',
+                    'Tap STOP SOS within 10s to stop siren, calls, and SMS messages.',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, height: 1.4),
+                    style: GoogleFonts.inter(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
                   ),
                 ],
               ),
               actions: [
                 TextButton(
                   onPressed: () {
-                    countdownTimer?.cancel();
-                    _isModalOpen = false;
-                    SosService.stopAlarmSound();
-                    Navigator.of(dialogCtx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('SOS Alert & Alarm Siren cancelled.'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    SosService.stopSosCountdown();
                   },
                   child: Text(
                     'STOP SOS',
@@ -158,11 +211,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ),
                   ),
                   onPressed: () {
-                    countdownTimer?.cancel();
-                    _isModalOpen = false;
-                    SosService.stopAlarmSound();
-                    Navigator.of(dialogCtx).pop();
-                    _dispatchSosAlert();
+                    SosService.triggerSosAlert();
+                    _onSosDispatched();
                   },
                   child: Text(
                     'SEND NOW',
@@ -179,35 +229,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       },
     ).then((_) {
       _isModalOpen = false;
-      SosService.stopAlarmSound();
+      _modalSetState = null;
     });
   }
 
-
-
-  Future<void> _dispatchSosAlert() async {
-    setState(() {
-      _isSosLoading = true;
-      _isSosActive = true;
-    });
-
-    final contacts = UserState.instance.getEmergencyPhoneNumbers();
-    final targetNumbers = contacts.isNotEmpty ? contacts : ['112', '911'];
-    final userName = UserState.instance.name;
-
-    final result = await SosService.triggerSosAlert(
-      phoneNumbers: targetNumbers,
-      message: 'EMERGENCY SOS: $userName needs immediate assistance!',
-      callEmergency: true,
-    );
-
-    setState(() {
-      _isSosLoading = false;
-      _lastStatusMessage = result.success
-          ? 'SOS Sent to ${targetNumbers.length} contacts! (Lat: ${result.latitude.toStringAsFixed(4)}, Lng: ${result.longitude.toStringAsFixed(4)})'
-          : 'SOS Dispatch Failed: ${result.errorMessage ?? "Error"}';
-    });
-
+  void _onSosDispatched() {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -217,21 +243,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  result.success
-                      ? '🚨 Emergency call initiated & SMS sent to ${targetNumbers.length} contacts!'
-                      : '🚨 Failed to send alert: ${result.errorMessage}',
-                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w500),
+                  '🚨 Emergency dispatched via background service!',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
           ),
-          backgroundColor: result.success ? AppTheme.sosRed : Colors.orange.shade800,
+          backgroundColor: AppTheme.sosRed,
           duration: const Duration(seconds: 4),
         ),
       );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -242,11 +268,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           children: [
-            // ── User Profile Summary Card (Requirement D) ────────────────
-            _buildUserProfileSummaryCard(context),
-
-            const SizedBox(height: 16),
-
             // ── SOS Button Section ──────────────────────────────────────
             _buildSosSection(context),
 
@@ -254,138 +275,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _buildFeatureGrid(context),
 
             const SizedBox(height: 24),
-
-            // ── Guardian Network Status bar ─────────────────────────────
-            _buildStatusBar(),
-
-            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildUserProfileSummaryCard(BuildContext context) {
-    final user = UserState.instance;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(color: Color(0x0A000000), blurRadius: 12, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppTheme.primaryLight,
-                    ),
-                    child: const Icon(Icons.person_rounded, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name,
-                        style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.onBackground),
-                      ),
-                      Text(
-                        user.email,
-                        style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceMid),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.logout_rounded, color: AppTheme.sosRed, size: 22),
-                tooltip: 'Logout',
-                onPressed: () {
-                  UserState.instance.logout();
-                  Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
-                },
-              ),
-            ],
-          ),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _infoTile('Mobile', user.phone),
-              _infoTile('DOB', user.dateOfBirth),
-              _infoTile('Blood Group', user.bloodGroup),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Registered Emergency Contacts (${user.emergencyContacts.length})',
-            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primary),
-          ),
-          const SizedBox(height: 8),
-          Column(
-            children: user.emergencyContacts.map((contact) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceVariant,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.contact_phone_rounded, size: 16, color: AppTheme.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          contact.name,
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      contact.phone,
-                      style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceMid),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoTile(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.onSurfaceMid)),
-        const SizedBox(height: 2),
-        Text(
-          value.isEmpty ? 'N/A' : value,
-          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.onBackground),
-        ),
-      ],
-    );
-  }
-
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
@@ -407,16 +301,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ),
               borderRadius: BorderRadius.circular(8),
             ),
-            child:
-                const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
+            child: const Icon(
+              Icons.shield_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Text(
             'Home Dashboard',
             style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.onBackground),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.onBackground,
+            ),
           ),
         ],
       ),
@@ -432,8 +330,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               shape: BoxShape.circle,
               color: AppTheme.primaryLight,
             ),
-            child: const Icon(Icons.person_rounded,
-                color: Colors.white, size: 20),
+            child: const Icon(
+              Icons.person_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
         ),
       ],
@@ -449,8 +350,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           const SizedBox(height: 16),
           // SOS Button with pulse animation and active/loading state
           SosButton(
-            isActive: _isSosActive,
-            isLoading: _isSosLoading,
+            isActive: false,
+            isLoading: false,
             onPressed: _onSosPressed,
           ),
           const SizedBox(height: 24),
@@ -458,13 +359,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              _isSosActive
-                  ? '🚨 SOS ALERT ACTIVE\nPress again to cancel or re-trigger emergency alert.'
-                  : 'Tap to launch 3s countdown\nalerts trusted contacts & local authorities.',
+              'Tap to launch 3s countdown\nalerts trusted contacts & local authorities.',
               style: GoogleFonts.inter(
                 fontSize: 14,
-                color: _isSosActive ? AppTheme.sosRed : AppTheme.onSurfaceMid,
-                fontWeight: _isSosActive ? FontWeight.w600 : FontWeight.normal,
+                color: AppTheme.onSurfaceMid,
+                fontWeight: FontWeight.normal,
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
@@ -522,9 +421,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             child: Text(
               'Quick Features',
               style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.onBackground),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.onBackground,
+              ),
             ),
           ),
           GridView.count(
@@ -533,105 +433,25 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 0.85,
+            childAspectRatio: 0.80,
             children: features
-                .map((f) => FeatureCard(
-                      icon: f.icon,
-                      iconBgColor: f.iconBg,
-                      iconColor: f.iconColor,
-                      title: f.title,
-                      description: f.description,
-                      onTap: () => Navigator.pushNamed(context, f.route),
-                    ))
+                .map(
+                  (f) => FeatureCard(
+                    icon: f.icon,
+                    iconBgColor: f.iconBg,
+                    iconColor: f.iconColor,
+                    title: f.title,
+                    description: f.description,
+                    onTap: () => Navigator.pushNamed(context, f.route),
+                  ),
+                )
                 .toList(),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildStatusBar() {
-    // Figma node 1:210 — Guardian Network status card
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 2,
-              offset: Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Avatar (Figma node 1:212)
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _isSosActive ? AppTheme.sosRedContainer : AppTheme.primaryLight,
-              ),
-              child: Icon(
-                _isSosActive ? Icons.warning_rounded : Icons.person_rounded,
-                color: _isSosActive ? AppTheme.sosRed : Colors.white,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      // Status dot (Figma node 1:215)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isSosActive ? AppTheme.sosRed : AppTheme.green,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          _isSosActive ? 'Emergency Active' : 'Guardian Network Active',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.onBackground,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _lastStatusMessage,
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: AppTheme.onSurfaceMid),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppTheme.onSurfaceLight),
-          ],
-        ),
-      ),
-    );
-  }
 }
-
 
 class _FeatureData {
   final IconData icon;

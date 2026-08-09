@@ -50,9 +50,11 @@ class FeatureCard extends StatelessWidget {
               ),
               child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             Text(
               title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -62,6 +64,8 @@ class FeatureCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: AppTheme.onSurfaceMid,

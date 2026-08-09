@@ -1,7 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
-import '../services/user_state.dart';
 
 /// Profile Management Screen — Figma node 1:253
 /// AppBar with back arrow, editable profile fields, emergency contacts, Update + Logout buttons
@@ -14,43 +19,80 @@ class ProfileManagementScreen extends StatefulWidget {
 }
 
 class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
-  late String _userName;
-  late String _phone;
-  late String _dob;
-  late String _bloodGroup;
-  late List<EmergencyContact> _contacts;
-
-  @override
-  void initState() {
-    super.initState();
-    final user = UserState.instance;
-    _userName = user.name;
-    _phone = user.phone;
-    _dob = user.dateOfBirth;
-    _bloodGroup = user.bloodGroup;
-    _contacts = List.from(user.emergencyContacts);
+  Future<void> _updateField(String field, dynamic value) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
+        {field: value},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 
-  void _saveProfileChanges() {
-    UserState.instance.updateUserProfile(
-      newName: _userName,
-      newPhone: _phone,
-      newEmail: UserState.instance.email,
-      newDob: _dob,
-      newBloodGroup: _bloodGroup,
-      newContacts: _contacts,
-    );
+  Future<void> _updateProfilePicture() async {
+    try {
+      final pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+      if (pickedFile == null) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile updated successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final file = File(pickedFile.path);
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures')
+          .child('${user.uid}.jpg');
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Uploading picture...')));
+      }
+
+      await ref.putFile(file);
+      final photoUrl = await ref.getDownloadURL();
+
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
+        {'photoUrl': photoUrl},
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile picture updated!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload picture: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Scaffold(body: Center(child: Text('Not authenticated')));
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       // ── AppBar (Figma node 1:437) ──────────────────────────────────────────
@@ -67,18 +109,25 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
               height: 24,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.primaryLight]),
+                  colors: [AppTheme.primary, AppTheme.primaryLight],
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.shield_rounded,
-                  color: Colors.white, size: 14),
+              child: const Icon(
+                Icons.shield_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
             const SizedBox(width: 8),
-            Text('Profile Management',
-                style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.onBackground)),
+            Text(
+              'Profile Management',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.onBackground,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -87,39 +136,86 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             width: 32,
             height: 32,
             decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: AppTheme.primaryLight),
-            child:
-                const Icon(Icons.person_rounded, color: Colors.white, size: 18),
+              shape: BoxShape.circle,
+              color: AppTheme.primaryLight,
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-        child: Column(
-          children: [
-            // ── Profile Header (Figma node 1:327) ─────────────────────────
-            _buildProfileHeader(),
-            const SizedBox(height: 24),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text('Session expired. Please log in again.'),
+            );
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('Profile not found'));
+          }
 
-            // ── Personal Info section (Figma node 1:339) ──────────────────
-            _buildPersonalInfoSection(),
-            const SizedBox(height: 24),
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          final userName =
+              data['fullName'] ?? user.displayName ?? 'Unknown User';
+          final email = data['email'] ?? user.email ?? 'No email';
+          final phone = data['phoneNumber'] ?? 'No phone';
+          final bloodGroup = data['bloodGroup'] ?? 'Unknown';
+          final List<dynamic> contacts = data['emergencyContacts'] ?? [];
+          final photoUrl = data['photoUrl'] as String?;
 
-            // ── Emergency Contacts section (Figma node 1:383) ─────────────
-            _buildEmergencyContactsSection(),
-            const SizedBox(height: 24),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 100),
+            child: Column(
+              children: [
+                // ── Profile Header (Figma node 1:327) ─────────────────────────
+                _buildProfileHeader(userName, photoUrl),
+                const SizedBox(height: 24),
 
-            // ── Actions (Figma node 1:427) ────────────────────────────────
-            _buildActions(context),
-          ],
-        ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      // ── Personal Info section (Figma node 1:339) ──────────────────
+                      _buildPersonalInfoSection(
+                        userName,
+                        phone,
+                        email,
+                        bloodGroup,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Emergency Contacts section (Figma node 1:383) ─────────────
+                      _buildEmergencyContactsSection(contacts),
+                      const SizedBox(height: 24),
+
+                      // ── Actions (Figma node 1:427) ────────────────────────────────
+                      _buildActions(context),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(String userName, String? photoUrl) {
     return SizedBox(
-      height: 180,
+      width: double.infinity,
+      height: 220,
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
@@ -135,44 +231,87 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                   color: AppTheme.divider,
                   boxShadow: const [
                     BoxShadow(
-                        color: Color(0x0D000000),
-                        blurRadius: 4,
-                        offset: Offset(0, 2))
+                      color: Color(0x0D000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
                   ],
                 ),
-                child: const Icon(Icons.person_rounded,
-                    color: AppTheme.onSurfaceLight, size: 48),
+                clipBehavior: Clip.antiAlias,
+                child: photoUrl != null && photoUrl.isNotEmpty
+                    ? Image.network(
+                        photoUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.person_rounded,
+                              color: AppTheme.onSurfaceLight,
+                              size: 48,
+                            ),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        },
+                      )
+                    : const Icon(
+                        Icons.person_rounded,
+                        color: AppTheme.onSurfaceLight,
+                        size: 48,
+                      ),
               ),
               // Edit photo button (Figma node 1:335 — blue circle)
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.primary,
+              GestureDetector(
+                onTap: _updateProfilePicture,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.primary,
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
-                child: const Icon(Icons.camera_alt_rounded,
-                    color: Colors.white, size: 16),
               ),
             ],
           ),
           // Name and role text below avatar
           Positioned(
             bottom: 0,
+            left: 0,
+            right: 0,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  _userName,
-                  style: GoogleFonts.inter(
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                  ), // Minimal padding to maximize usable width
+                  child: Text(
+                    userName,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    softWrap: true,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.onBackground),
+                      color: AppTheme.onBackground,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Verified User',
                   style: GoogleFonts.inter(
-                      fontSize: 14, color: AppTheme.onSurfaceLight),
+                    fontSize: 14,
+                    color: AppTheme.onSurfaceLight,
+                  ),
                 ),
               ],
             ),
@@ -182,17 +321,25 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
-  Widget _buildPersonalInfoSection() {
+  Widget _buildPersonalInfoSection(
+    String userName,
+    String phone,
+    String email,
+    String bloodGroup,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 12),
-          child: Text('Personal Info',
-              style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.onBackground)),
+          child: Text(
+            'Personal Info',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.onBackground,
+            ),
+          ),
         ),
         Container(
           decoration: BoxDecoration(
@@ -200,36 +347,49 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: const [
               BoxShadow(
-                  color: Color(0x0D000000),
-                  blurRadius: 2,
-                  offset: Offset(0, 1))
+                color: Color(0x0D000000),
+                blurRadius: 2,
+                offset: Offset(0, 1),
+              ),
             ],
           ),
           padding: const EdgeInsets.all(8),
           child: Column(
             children: [
-              _profileRow('User Name', _userName,
-                  onEdit: () => _editField(context, 'User Name', _userName,
-                      (v) => setState(() {
-                        _userName = v;
-                        _saveProfileChanges();
-                      }))),
+              _profileRow(
+                'User Name',
+                userName,
+                onEdit: () => _editField(
+                  context,
+                  'User Name',
+                  userName,
+                  (v) => _updateField('fullName', v),
+                ),
+              ),
               const SizedBox(height: 8),
-              _profileRow('Phone Number', _phone,
-                  onEdit: () => _editField(context, 'Phone Number', _phone,
-                      (v) => setState(() {
-                        _phone = v;
-                        _saveProfileChanges();
-                      }))),
+              _profileRow(
+                'Email Address',
+                email,
+                onEdit: () => _editField(
+                  context,
+                  'Email Address',
+                  email,
+                  (v) => _updateField('email', v),
+                ),
+              ),
               const SizedBox(height: 8),
-              _profileRow('Date of Birth', _dob,
-                  onEdit: () => _editField(context, 'Date of Birth', _dob,
-                      (v) => setState(() {
-                        _dob = v;
-                        _saveProfileChanges();
-                      }))),
+              _profileRow(
+                'Phone Number',
+                phone,
+                onEdit: () => _editField(
+                  context,
+                  'Phone Number',
+                  phone,
+                  (v) => _updateField('phoneNumber', v),
+                ),
+              ),
               const SizedBox(height: 8),
-              _bloodGroupRow(),
+              _bloodGroupRow(bloodGroup),
             ],
           ),
         ),
@@ -237,8 +397,11 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
-
-  Widget _profileRow(String label, String value, {required VoidCallback onEdit}) {
+  Widget _profileRow(
+    String label,
+    String value, {
+    required VoidCallback onEdit,
+  }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -251,15 +414,22 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: AppTheme.onSurfaceLight)),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppTheme.onSurfaceLight,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(value,
-                    style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.onBackground)),
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.onBackground,
+                  ),
+                ),
               ],
             ),
           ),
@@ -268,10 +438,15 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: AppTheme.cardBg),
+              shape: BoxShape.circle,
+              color: AppTheme.cardBg,
+            ),
             child: IconButton(
-              icon: const Icon(Icons.edit_rounded,
-                  size: 16, color: AppTheme.onSurfaceMid),
+              icon: const Icon(
+                Icons.edit_rounded,
+                size: 16,
+                color: AppTheme.onSurfaceMid,
+              ),
               onPressed: onEdit,
               padding: EdgeInsets.zero,
             ),
@@ -281,7 +456,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
-  Widget _bloodGroupRow() {
+  Widget _bloodGroupRow(String bloodGroup) {
     // Figma node 1:371 — pink tinted background rgba(255,179,172,0.2)
     return Container(
       padding: const EdgeInsets.all(12),
@@ -295,20 +470,30 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Blood Group',
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: const Color(0xFFB6171E))),
+                Text(
+                  'Blood Group',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFFB6171E),
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.water_drop_rounded,
-                        size: 16, color: AppTheme.sosRed),
+                    const Icon(
+                      Icons.water_drop_rounded,
+                      size: 16,
+                      color: AppTheme.sosRed,
+                    ),
                     const SizedBox(width: 8),
-                    Text(_bloodGroup,
-                        style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.onBackground)),
+                    Text(
+                      bloodGroup,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.onBackground,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -319,12 +504,21 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: Colors.white),
+              shape: BoxShape.circle,
+              color: Colors.white,
+            ),
             child: IconButton(
-              icon: const Icon(Icons.edit_rounded,
-                  size: 16, color: AppTheme.onSurfaceMid),
-              onPressed: () => _editField(context, 'Blood Group', _bloodGroup,
-                  (v) => setState(() => _bloodGroup = v)),
+              icon: const Icon(
+                Icons.edit_rounded,
+                size: 16,
+                color: AppTheme.onSurfaceMid,
+              ),
+              onPressed: () => _editField(
+                context,
+                'Blood Group',
+                bloodGroup,
+                (v) => _updateField('bloodGroup', v),
+              ),
               padding: EdgeInsets.zero,
             ),
           ),
@@ -333,7 +527,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
-  Widget _buildEmergencyContactsSection() {
+  Widget _buildEmergencyContactsSection(List<dynamic> contacts) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -341,62 +535,99 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
           padding: const EdgeInsets.only(left: 8, bottom: 12),
           child: Row(
             children: [
-              const Icon(Icons.contacts_rounded,
-                  size: 18, color: AppTheme.onBackground),
+              const Icon(
+                Icons.contacts_rounded,
+                size: 18,
+                color: AppTheme.onBackground,
+              ),
               const SizedBox(width: 8),
-              Text('Emergency Contacts',
-                  style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.onBackground)),
+              Text(
+                'Emergency Contacts',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.onBackground,
+                ),
+              ),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryLight,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text('${_contacts.length} of 3 (Min 2)',
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppTheme.primary,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  '${contacts.length} of 3 (Min 1)',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
         ),
-        ..._contacts.asMap().entries.map((entry) {
+        ...contacts.asMap().entries.map((entry) {
           final i = entry.key;
-          final c = entry.value;
+          final String phone = entry.value.toString();
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _contactCard(c, onDelete: () {
-              if (_contacts.length > 2) {
-                setState(() {
-                  _contacts.removeAt(i);
-                  _saveProfileChanges();
-                });
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Minimum 2 emergency contacts are required.')),
-                );
-              }
-            }),
+            child: _contactCard(
+              i,
+              phone,
+              contacts,
+              onDelete: () {
+                if (contacts.length > 1) {
+                  final updated = List.from(contacts);
+                  updated.removeAt(i);
+                  _updateField('emergencyContacts', updated);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Minimum 1 emergency contact is required.'),
+                    ),
+                  );
+                }
+              },
+            ),
           );
         }),
         // Add contact button (Figma node 1:422)
-        if (_contacts.length < 3)
+        if (contacts.length < 5)
           GestureDetector(
             onTap: () {
-              setState(() {
-                _contacts.add(EmergencyContact(
-                  name: 'New Contact',
-                  relation: 'Friend',
-                  phone: '+919876543210',
-                ));
-                _saveProfileChanges();
-              });
+              final phoneCtrl = TextEditingController();
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Add Emergency Contact'),
+                  content: TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (phoneCtrl.text.trim().isNotEmpty) {
+                          final updated = List.from(contacts)
+                            ..add(phoneCtrl.text.trim());
+                          _updateField('emergencyContacts', updated);
+                        }
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+              );
             },
             child: Container(
               width: double.infinity,
@@ -408,12 +639,19 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_add_rounded,
-                      color: AppTheme.onSurfaceMid, size: 20),
+                  const Icon(
+                    Icons.person_add_rounded,
+                    color: AppTheme.onSurfaceMid,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  Text('Add Emergency Contact (${_contacts.length}/3)',
-                      style: GoogleFonts.inter(
-                          fontSize: 16, color: AppTheme.onSurfaceMid)),
+                  Text(
+                    'Add Emergency Contact (${contacts.length}/5)',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: AppTheme.onSurfaceMid,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -422,12 +660,13 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
-
-  Widget _contactCard(EmergencyContact contact,
-      {required VoidCallback onDelete}) {
-    final initial = contact.name.isNotEmpty
-        ? contact.name[0].toUpperCase()
-        : 'C';
+  Widget _contactCard(
+    int index,
+    String phone,
+    List<dynamic> allContacts, {
+    required VoidCallback onDelete,
+  }) {
+    final initial = 'C';
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -435,9 +674,10 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 2,
-              offset: Offset(0, 1))
+            color: Color(0x0D000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: Row(
@@ -446,44 +686,60 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             width: 48,
             height: 48,
             decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: AppTheme.primaryLight),
+              shape: BoxShape.circle,
+              color: AppTheme.primaryLight,
+            ),
             alignment: Alignment.center,
-            child: Text(initial,
-                style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white)),
+            child: Text(
+              initial,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(contact.name,
-                    style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.onBackground)),
+                Text(
+                  'Emergency Contact ${index + 1}',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.onBackground,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
-                    '${contact.relation} • ${contact.phone}',
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: AppTheme.onSurfaceLight),
-                    overflow: TextOverflow.ellipsis),
+                  phone,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppTheme.onSurfaceLight,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
           GestureDetector(
             onTap: () {
-              _editContactDialog(contact);
+              _editContactDialog(index, phone, allContacts);
             },
             child: Container(
               width: 40,
               height: 40,
               decoration: const BoxDecoration(
-                  shape: BoxShape.circle, color: AppTheme.cardBg),
-              child: const Icon(Icons.edit_rounded,
-                  size: 16, color: AppTheme.onSurfaceMid),
+                shape: BoxShape.circle,
+                color: AppTheme.cardBg,
+              ),
+              child: const Icon(
+                Icons.edit_rounded,
+                size: 16,
+                color: AppTheme.onSurfaceMid,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -493,9 +749,14 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
               width: 40,
               height: 40,
               decoration: const BoxDecoration(
-                  shape: BoxShape.circle, color: AppTheme.sosRedContainer),
-              child: const Icon(Icons.delete_rounded,
-                  size: 16, color: AppTheme.sosRed),
+                shape: BoxShape.circle,
+                color: AppTheme.sosRedContainer,
+              ),
+              child: const Icon(
+                Icons.delete_rounded,
+                size: 16,
+                color: AppTheme.sosRed,
+              ),
             ),
           ),
         ],
@@ -503,11 +764,12 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
-  void _editContactDialog(EmergencyContact contact) {
-    final nameCtrl = TextEditingController(text: contact.name);
-    final relCtrl = TextEditingController(text: contact.relation);
-    final phoneCtrl = TextEditingController(text: contact.phone);
-
+  void _editContactDialog(
+    int index,
+    String currentPhone,
+    List<dynamic> allContacts,
+  ) {
+    final phoneCtrl = TextEditingController(text: currentPhone);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -515,21 +777,26 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: relCtrl, decoration: const InputDecoration(labelText: 'Relation')),
-            TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number')),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone Number'),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
-              setState(() {
-                contact.name = nameCtrl.text.trim();
-                contact.relation = relCtrl.text.trim();
-                contact.phone = phoneCtrl.text.trim();
-                _saveProfileChanges();
-              });
+              final newPhone = phoneCtrl.text.trim();
+              if (newPhone.isNotEmpty) {
+                final updatedContacts = List.from(allContacts);
+                updatedContacts[index] = newPhone;
+                _updateField('emergencyContacts', updatedContacts);
+              }
               Navigator.pop(ctx);
             },
             child: const Text('Save'),
@@ -542,22 +809,22 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
   Widget _buildActions(BuildContext context) {
     return Column(
       children: [
-        FilledButton.icon(
-          onPressed: _saveProfileChanges,
-          icon: const Icon(Icons.save_rounded, size: 20),
-          label: const Text('Update Profile'),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTheme.primary,
-            minimumSize: const Size.fromHeight(56),
-            shape: const StadiumBorder(),
-          ),
-        ),
-
-        const SizedBox(height: 16),
         // Log Out button (Figma node 1:433 — #edeeef bg)
         FilledButton.icon(
-          onPressed: () => Navigator.pushNamedAndRemoveUntil(
-              context, '/login', (r) => false),
+          onPressed: () async {
+            if (context.mounted) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/login',
+                (r) => false,
+              );
+            }
+            await FirebaseAuth.instance.signOut();
+            final googleSignIn = GoogleSignIn();
+            if (await googleSignIn.isSignedIn()) {
+              await googleSignIn.signOut();
+            }
+          },
           icon: const Icon(Icons.logout_rounded, size: 18),
           label: const Text('Log Out'),
           style: FilledButton.styleFrom(
@@ -571,30 +838,37 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     );
   }
 
-  Future<void> _editField(BuildContext context, String label, String current,
-      ValueChanged<String> onSave) async {
+  Future<void> _editField(
+    BuildContext context,
+    String label,
+    String current,
+    ValueChanged<String> onSave,
+  ) async {
     final ctrl = TextEditingController(text: current);
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Edit $label',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        title: Text(
+          'Edit $label',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           decoration: InputDecoration(
             labelText: label,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('Save')),
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );

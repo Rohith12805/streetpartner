@@ -14,7 +14,8 @@ class NearbyEmergencyServicesScreen extends StatefulWidget {
 
 class _NearbyEmergencyServicesScreenState
     extends State<NearbyEmergencyServicesScreen> {
-  String _selectedCategory = 'Police'; // Default: Police selected (Figma node 1:627)
+  String _selectedCategory =
+      'Police'; // Default: Police selected (Figma node 1:627)
 
   // Placeholder data per category
   final Map<String, List<_ServiceItem>> _services = {
@@ -95,18 +96,25 @@ class _NearbyEmergencyServicesScreenState
               height: 24,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.primaryLight]),
+                  colors: [AppTheme.primary, AppTheme.primaryLight],
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.shield_rounded,
-                  color: Colors.white, size: 14),
+              child: const Icon(
+                Icons.shield_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
             const SizedBox(width: 8),
-            Text('Nearby Emergency Services',
-                style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.onBackground)),
+            Text(
+              'Nearby Emergency Services',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.onBackground,
+              ),
+            ),
           ],
         ),
       ),
@@ -128,26 +136,36 @@ class _NearbyEmergencyServicesScreenState
                 Text(
                   'Nearby $_selectedCategory',
                   style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.onBackground),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.onBackground,
+                  ),
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.15),
+                    color: AppTheme.primaryLight.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.map_outlined,
-                          size: 14, color: AppTheme.primary),
+                      const Icon(
+                        Icons.map_outlined,
+                        size: 14,
+                        color: AppTheme.primary,
+                      ),
                       const SizedBox(width: 4),
-                      Text('Map View',
-                          style: GoogleFonts.inter(
-                              fontSize: 13, color: AppTheme.primary)),
+                      Text(
+                        'Map View',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppTheme.primary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -162,7 +180,7 @@ class _NearbyEmergencyServicesScreenState
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               itemCount: _services[_selectedCategory]!.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (ctx, i) {
                 final item = _services[_selectedCategory]![i];
                 return _buildServiceCard(context, item);
@@ -181,9 +199,13 @@ class _NearbyEmergencyServicesScreenState
                 shape: const StadiumBorder(),
                 side: const BorderSide(color: AppTheme.divider),
               ),
-              child: Text('Back',
-                  style: GoogleFonts.inter(
-                      fontSize: 16, fontWeight: FontWeight.w500)),
+              child: Text(
+                'Back',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
         ],
@@ -215,14 +237,16 @@ class _NearbyEmergencyServicesScreenState
 
     return Row(
       children: categories
-          .map((cat) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: cat.id != 'Fire Station' ? 12 : 0,
-                  ),
-                  child: _categoryCard(cat),
+          .map(
+            (cat) => Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: cat.id != 'Fire Station' ? 12 : 0,
                 ),
-              ))
+                child: _categoryCard(cat),
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -236,15 +260,14 @@ class _NearbyEmergencyServicesScreenState
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
           // Figma: selected = #e7e8e9 with blue tint overlay
-          color: isSelected
-              ? const Color(0xFFE7E8E9)
-              : AppTheme.cardBg,
+          color: isSelected ? const Color(0xFFE7E8E9) : AppTheme.cardBg,
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x06000000),
-                blurRadius: 4,
-                offset: Offset(0, 1))
+              color: Color(0x06000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
           ],
         ),
         child: Stack(
@@ -254,7 +277,7 @@ class _NearbyEmergencyServicesScreenState
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.08),
+                    color: AppTheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -267,15 +290,13 @@ class _NearbyEmergencyServicesScreenState
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     // Selected: #005bbf with glow (Figma node 1:629)
-                    color: isSelected
-                        ? AppTheme.primary
-                        : AppTheme.divider,
+                    color: isSelected ? AppTheme.primary : AppTheme.divider,
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppTheme.primary.withOpacity(0.3),
+                              color: AppTheme.primary.withValues(alpha: 0.3),
                               blurRadius: 8,
-                            )
+                            ),
                           ]
                         : [],
                   ),
@@ -290,9 +311,7 @@ class _NearbyEmergencyServicesScreenState
                   cat.id,
                   style: GoogleFonts.inter(
                     fontSize: 13,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.w400,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     color: AppTheme.onBackground,
                   ),
                   textAlign: TextAlign.center,
@@ -313,7 +332,10 @@ class _NearbyEmergencyServicesScreenState
         borderRadius: BorderRadius.circular(24),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))
+            color: Color(0x0A000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -329,7 +351,7 @@ class _NearbyEmergencyServicesScreenState
                 height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.primary.withOpacity(0.1),
+                  color: AppTheme.primary.withValues(alpha: 0.1),
                 ),
                 child: Icon(
                   _categoryIcon(_selectedCategory),
@@ -345,22 +367,27 @@ class _NearbyEmergencyServicesScreenState
                     Text(
                       item.name,
                       style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.onBackground),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.onBackground,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.location_on_rounded,
-                            size: 12, color: AppTheme.onSurfaceMid),
+                        const Icon(
+                          Icons.location_on_rounded,
+                          size: 12,
+                          color: AppTheme.onSurfaceMid,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             item.address,
                             style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: AppTheme.onSurfaceMid),
+                              fontSize: 12,
+                              color: AppTheme.onSurfaceMid,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -372,11 +399,10 @@ class _NearbyEmergencyServicesScreenState
               const SizedBox(width: 8),
               // Distance badge (Figma node 1:670 — nearest=red, others=grey)
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: item.isNearest
-                      ? AppTheme.sosRed.withOpacity(0.15)
+                      ? AppTheme.sosRed.withValues(alpha: 0.15)
                       : AppTheme.divider,
                   borderRadius: BorderRadius.circular(6),
                 ),
@@ -409,9 +435,7 @@ class _NearbyEmergencyServicesScreenState
           // Divider (Figma node 1:674 — HorizontalBorder)
           const Padding(
             padding: EdgeInsets.only(top: 16),
-            child: Divider(
-                height: 1,
-                color: Color(0x4DC1C6D6)),
+            child: Divider(height: 1, color: Color(0x4DC1C6D6)),
           ),
           const SizedBox(height: 16),
 
@@ -426,16 +450,21 @@ class _NearbyEmergencyServicesScreenState
                     onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                            'Calling ${item.phone} (Demo)',
-                            style: GoogleFonts.inter(color: Colors.white)),
+                          'Calling ${item.phone} (Demo)',
+                          style: GoogleFonts.inter(color: Colors.white),
+                        ),
                         backgroundColor: AppTheme.primary,
                         duration: const Duration(seconds: 2),
                       ),
                     ),
                     icon: const Icon(Icons.phone_rounded, size: 16),
-                    label: Text(item.phone,
-                        style: GoogleFonts.inter(
-                            fontSize: 13, fontWeight: FontWeight.w500)),
+                    label: Text(
+                      item.phone,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       shape: const StadiumBorder(),
@@ -453,8 +482,11 @@ class _NearbyEmergencyServicesScreenState
                   shape: BoxShape.circle,
                   color: AppTheme.divider,
                 ),
-                child: const Icon(Icons.directions_rounded,
-                    color: AppTheme.onSurfaceMid, size: 22),
+                child: const Icon(
+                  Icons.directions_rounded,
+                  color: AppTheme.onSurfaceMid,
+                  size: 22,
+                ),
               ),
             ],
           ),

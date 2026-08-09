@@ -31,16 +31,19 @@ class _SosButtonState extends State<SosButton>
       vsync: this,
       duration: Duration(seconds: widget.isActive ? 1 : 2),
     )..repeat();
-    _pulseAnimation = Tween<double>(begin: 1.0, end: widget.isActive ? 1.35 : 1.25).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: widget.isActive ? 1.35 : 1.25,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
   void didUpdateWidget(SosButton oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive) {
-      _controller.duration = Duration(milliseconds: widget.isActive ? 800 : 2000);
+      _controller.duration = Duration(
+        milliseconds: widget.isActive ? 800 : 2000,
+      );
       if (!_controller.isAnimating) {
         _controller.repeat();
       }
@@ -55,7 +58,9 @@ class _SosButtonState extends State<SosButton>
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = widget.isActive ? const Color(0xFFDC2626) : AppTheme.sosRed;
+    final activeColor = widget.isActive
+        ? const Color(0xFFDC2626)
+        : AppTheme.sosRed;
 
     return GestureDetector(
       onTap: widget.isLoading ? null : widget.onPressed,
@@ -75,7 +80,9 @@ class _SosButtonState extends State<SosButton>
                   height: 192,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: activeColor.withValues(alpha: widget.isActive ? 0.25 : 0.1),
+                    color: activeColor.withValues(
+                      alpha: widget.isActive ? 0.25 : 0.1,
+                    ),
                   ),
                 ),
               ),
@@ -86,7 +93,9 @@ class _SosButtonState extends State<SosButton>
               height: 160,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: activeColor.withValues(alpha: widget.isActive ? 0.4 : 0.2),
+                color: activeColor.withValues(
+                  alpha: widget.isActive ? 0.4 : 0.2,
+                ),
               ),
             ),
             // Main button
@@ -115,7 +124,9 @@ class _SosButtonState extends State<SosButton>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          widget.isActive ? Icons.emergency_rounded : Icons.warning_amber_rounded,
+                          widget.isActive
+                              ? Icons.emergency_rounded
+                              : Icons.warning_amber_rounded,
                           color: Colors.white,
                           size: 40,
                         ),
@@ -138,4 +149,3 @@ class _SosButtonState extends State<SosButton>
     );
   }
 }
-

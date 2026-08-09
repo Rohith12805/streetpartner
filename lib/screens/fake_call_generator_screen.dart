@@ -22,7 +22,12 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
     _TimeOption(id: '1m', label: '1 Minute', icon: Icons.looks_one_outlined),
     _TimeOption(id: '2m', label: '2 Minutes', icon: Icons.looks_two_outlined),
     _TimeOption(id: '5m', label: '5 Minutes', icon: Icons.timer_outlined),
-    _TimeOption(id: 'custom', label: 'Custom', icon: Icons.tune_rounded, fullWidth: true),
+    _TimeOption(
+      id: 'custom',
+      label: 'Custom',
+      icon: Icons.tune_rounded,
+      fullWidth: true,
+    ),
   ];
 
   String get _scheduleLabel {
@@ -53,18 +58,25 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
               height: 24,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.primaryLight]),
+                  colors: [AppTheme.primary, AppTheme.primaryLight],
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.shield_rounded,
-                  color: Colors.white, size: 14),
+              child: const Icon(
+                Icons.shield_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
             const SizedBox(width: 8),
-            Text('Fake Call Generator',
-                style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.onBackground)),
+            Text(
+              'Fake Call Generator',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.onBackground,
+              ),
+            ),
           ],
         ),
       ),
@@ -79,27 +91,34 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                   const SizedBox(height: 16),
 
                   // ── Header (Figma node 1:256) ─────────────────────────────
-                  Text('Fake Call',
-                      style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.onBackground)),
+                  Text(
+                    'Fake Call',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.onBackground,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Schedule an incoming call to discreetly exit a situation.',
                     style: GoogleFonts.inter(
-                        fontSize: 15,
-                        color: AppTheme.onSurfaceMid,
-                        height: 1.5),
+                      fontSize: 15,
+                      color: AppTheme.onSurfaceMid,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 24),
 
                   // ── Delay time section (Figma node 1:262) ─────────────────
-                  Text('Delay time',
-                      style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.onBackground)),
+                  Text(
+                    'Delay time',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.onBackground,
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
                   // ── Time option grid (Figma node 1:265) ───────────────────
@@ -128,16 +147,17 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
               onPressed: _selectedOption == null
                   ? null
                   : () {
-                      if (_selectedOption == 'custom' &&
-                          _customTime == null) {
+                      if (_selectedOption == 'custom' && _customTime == null) {
                         _pickCustomTime(context);
                         return;
                       }
                       setState(() => _callScheduled = true);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(_scheduleLabel,
-                              style: GoogleFonts.inter(color: Colors.white)),
+                          content: Text(
+                            _scheduleLabel,
+                            style: GoogleFonts.inter(color: Colors.white),
+                          ),
                           backgroundColor: AppTheme.primary,
                         ),
                       );
@@ -147,11 +167,13 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: _selectedOption != null
                     ? AppTheme.primary
-                    : AppTheme.primary.withOpacity(0.5),
+                    : AppTheme.primary.withValues(alpha: 0.5),
                 minimumSize: const Size.fromHeight(56),
                 shape: const StadiumBorder(),
                 textStyle: GoogleFonts.inter(
-                    fontSize: 16, fontWeight: FontWeight.w500),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -174,9 +196,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           childAspectRatio: 1.6,
-          children: rowOptions
-              .map((opt) => _timeOptionCard(opt))
-              .toList(),
+          children: rowOptions.map((opt) => _timeOptionCard(opt)).toList(),
         ),
         const SizedBox(height: 12),
         // Full-width Custom button
@@ -202,13 +222,15 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
         decoration: BoxDecoration(
           // Figma: selected = blue tinted, unselected = #edeeef
           color: isSelected
-              ? AppTheme.primary.withOpacity(0.1)
+              ? AppTheme.primary.withValues(alpha: 0.1)
               : AppTheme.cardBg,
           borderRadius: BorderRadius.circular(12),
           border: isSelected
               ? Border.all(color: AppTheme.primary, width: 1.5)
               : Border.all(
-                  color: AppTheme.outline.withOpacity(0.15), width: 1),
+                  color: AppTheme.outline.withValues(alpha: 0.15),
+                  width: 1,
+                ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -216,19 +238,15 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
             Icon(
               opt.icon,
               size: 24,
-              color:
-                  isSelected ? AppTheme.primary : AppTheme.onSurfaceMid,
+              color: isSelected ? AppTheme.primary : AppTheme.onSurfaceMid,
             ),
             const SizedBox(height: 8),
             Text(
               opt.label,
               style: GoogleFonts.inter(
                 fontSize: 14,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected
-                    ? AppTheme.primary
-                    : AppTheme.onBackground,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppTheme.primary : AppTheme.onBackground,
               ),
               textAlign: TextAlign.center,
             ),
@@ -246,7 +264,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -257,14 +275,17 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                   ? 'Custom: ${_customTime!.format(context)}'
                   : 'Tap to pick a time',
               style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: _customTime != null
-                      ? AppTheme.primary
-                      : AppTheme.onSurfaceMid),
+                fontSize: 15,
+                color: _customTime != null
+                    ? AppTheme.primary
+                    : AppTheme.onSurfaceMid,
+              ),
             ),
             const Spacer(),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppTheme.onSurfaceLight),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.onSurfaceLight,
+            ),
           ],
         ),
       ),
@@ -280,40 +301,52 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x1A000000),
-              blurRadius: 20,
-              offset: Offset(0, 8))
+            color: Color(0x1A000000),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
         ],
       ),
       child: Row(
         children: [
-          const Icon(Icons.phone_in_talk_rounded,
-              color: Colors.white, size: 24),
+          const Icon(
+            Icons.phone_in_talk_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Call scheduled',
-                    style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: const Color(0xFFF0F1F2),
-                        fontWeight: FontWeight.w500)),
-                Text(_scheduleLabel,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: const Color(0xCCF0F1F2))),
+                Text(
+                  'Call scheduled',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: const Color(0xFFF0F1F2),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  _scheduleLabel,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xCCF0F1F2),
+                  ),
+                ),
               ],
             ),
           ),
           TextButton(
             onPressed: () => setState(() => _callScheduled = false),
-            child: Text('CANCEL',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.sosRed,
-                )),
+            child: Text(
+              'CANCEL',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.sosRed,
+              ),
+            ),
           ),
         ],
       ),
