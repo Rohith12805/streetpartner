@@ -6,7 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
+import '../services/sos_service.dart';
 
 /// Profile Management Screen — Figma node 1:253
 /// AppBar with back arrow, editable profile fields, emergency contacts, Update + Logout buttons
@@ -812,6 +814,15 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         // Log Out button (Figma node 1:433 — #edeeef bg)
         FilledButton.icon(
           onPressed: () async {
+            // Stop foreground service before logging out
+            await SosService.stopForegroundService();
+            
+            // Clear protection preference
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('background_protection', false);
+            } catch (_) {}
+
             if (context.mounted) {
               Navigator.pushNamedAndRemoveUntil(
                 context,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/feature_card.dart';
@@ -20,6 +21,11 @@ class HomeDashboardScreen extends StatefulWidget {
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _isModalOpen = false;
   int _secondsLeft = 10;
+  bool _isLiveLocationActive = false;
+  bool _isBackgroundProtectionEnabled = false;
+  
+  List<String> _targetNumbers = ['112', '911'];
+  String _userName = 'Unknown User';
 
   StreamSubscription<int>? _timerSubscription;
   StateSetter? _modalSetState;
@@ -29,7 +35,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     super.initState();
     // Auto-request Android OS permissions (CALL_PHONE, SEND_SMS, GPS Location, Notifications)
     SosService.requestPermissions().then((_) {
-      _initializeSosService();
+      _fetchEmergencyContacts().then((_) {
+        _loadProtectionState();
+      });
     });
 
     // Listen to timer ticks from Native Foreground Service
@@ -72,10 +80,41 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     super.dispose();
   }
 
-  Future<void> _initializeSosService() async {
-    List<String> targetNumbers = ['112', '911'];
-    String userName = 'Unknown User';
+  Future<void> _loadProtectionState() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isBackgroundProtectionEnabled = prefs.getBool('background_protection') ?? false;
+    });
+    if (_isBackgroundProtectionEnabled) {
+      _initializeSosService();
+    } else {
+      SosService.stopForegroundService();
+    }
+  }
 
+  Future<void> _toggleProtection(bool value) async {
+    setState(() {
+      _isBackgroundProtectionEnabled = value;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('background_protection', value);
+
+    if (value) {
+      _initializeSosService();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Active Protection Mode Enabled.')),
+      );
+    } else {
+      SosService.stopForegroundService();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Active Protection Mode Disabled.')),
+      );
+    }
+  }
+
+  Future<void> _fetchEmergencyContacts() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -91,24 +130,39 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   .toList() ??
               [];
           if (contacts.isNotEmpty) {
-            targetNumbers = contacts;
+            _targetNumbers = contacts;
           }
-          userName = data['fullName'] ?? user.displayName ?? 'Unknown User';
+          if (mounted) {
+            setState(() {
+              _userName = data['fullName'] ?? user.displayName ?? 'Unknown User';
+            });
+          }
+
+          // Push the new contacts to the native background service if it is running!
+          if (mounted && _isBackgroundProtectionEnabled) {
+            _initializeSosService();
+          }
         }
       }
     } catch (e) {
       debugPrint('Error fetching user data for SOS: $e');
     }
+  }
 
+  Future<void> _initializeSosService() async {
     SosService.startSosService(
-      phoneNumbers: targetNumbers,
-      message: 'EMERGENCY SOS: $userName needs immediate assistance!',
+      phoneNumbers: _targetNumbers,
+      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
+      userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
     );
   }
 
   void _onSosPressed() {
     // Manually trigger the native foreground countdown
-    SosService.triggerSosCountdown();
+    SosService.triggerSosCountdown(
+      phoneNumbers: _targetNumbers,
+      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
+    );
   }
 
   void _showSosCountdownDialog() {
@@ -211,7 +265,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ),
                   ),
                   onPressed: () {
-                    SosService.triggerSosAlert();
+                    SosService.triggerSosAlert(
+                      phoneNumbers: _targetNumbers,
+                      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
+                      userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown'
+                    );
                     _onSosDispatched();
                   },
                   child: Text(
@@ -235,6 +293,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   void _onSosDispatched() {
     if (mounted) {
+      setState(() {
+        _isLiveLocationActive = true;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -243,7 +304,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '🚨 Emergency dispatched via background service!',
+                  '🚨 Emergency dispatched! Live location active.',
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
@@ -259,6 +320,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
   }
 
+  void _stopLiveLocation() {
+    SosService.stopLiveLocation();
+    setState(() {
+      _isLiveLocationActive = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Live location tracking stopped.'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -268,8 +342,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           children: [
+            if (_isLiveLocationActive) _buildLiveLocationBanner(),
+
             // ── SOS Button Section ──────────────────────────────────────
             _buildSosSection(context),
+
+            // ── Background Protection Toggle ────────────────────────────
+            _buildProtectionToggle(),
+
+            const SizedBox(height: 24),
 
             // ── Quick Features Grid ─────────────────────────────────────
             _buildFeatureGrid(context),
@@ -321,7 +402,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       actions: [
         // Profile avatar button (Figma node 1:229)
         GestureDetector(
-          onTap: () => Navigator.pushNamed(context, '/profile'),
+          onTap: () async {
+            await Navigator.pushNamed(context, '/profile');
+            // Check if we logged out and the screen was disposed
+            if (!mounted) return;
+            // Refresh contacts in case they were updated
+            await _fetchEmergencyContacts();
+          },
           child: Container(
             margin: const EdgeInsets.only(right: 16),
             width: 36,
@@ -338,6 +425,83 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLiveLocationBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.sosRedContainer,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.sosRed),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: AppTheme.sosRed),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Live Location Active',
+                  style: GoogleFonts.inter(
+                    color: AppTheme.sosRed,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your location is being shared with emergency contacts.',
+            style: GoogleFonts.inter(
+              color: AppTheme.onSurfaceMid,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.sosRed,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Stop Live Location?'),
+                    content: const Text('Are you sure you are safe and want to stop sharing your location?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _stopLiveLocation();
+                        },
+                        child: const Text('Stop Sharing', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: const Text('I am Safe - Stop Sharing'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -370,6 +534,59 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProtectionToggle() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SwitchListTile(
+        title: Text(
+          'Active Protection Mode',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            color: AppTheme.onBackground,
+          ),
+        ),
+        subtitle: Text(
+          'Keep SOS ready in background via notification & shake-to-trigger when outdoors.',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: AppTheme.onSurfaceMid,
+            height: 1.4,
+          ),
+        ),
+        value: _isBackgroundProtectionEnabled,
+        activeThumbColor: AppTheme.primary,
+        onChanged: _toggleProtection,
+        secondary: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isBackgroundProtectionEnabled 
+                ? AppTheme.primaryLight.withValues(alpha: 0.2) 
+                : Colors.grey.shade100,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            _isBackgroundProtectionEnabled ? Icons.shield_rounded : Icons.shield_outlined,
+            color: _isBackgroundProtectionEnabled ? AppTheme.primary : Colors.grey,
+            size: 22,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     );
   }

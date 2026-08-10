@@ -95,11 +95,13 @@ class MainActivity : FlutterActivity() {
                 "startForegroundService" -> {
                     val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
                     val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
+                    val userId = call.argument<String>("userId") ?: "unknown"
                     
                     val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
                         action = SosForegroundService.ACTION_START_FOREGROUND_SERVICE
                         putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
                         putExtra(SosForegroundService.EXTRA_MESSAGE, message)
+                        putExtra("EXTRA_USER_ID", userId)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(serviceIntent)
@@ -109,9 +111,20 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                "stopForegroundService" -> {
+                    val serviceIntent = Intent(this, SosForegroundService::class.java)
+                    stopService(serviceIntent)
+                    result.success(true)
+                }
+
                 "triggerSosCountdown" -> {
+                    val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
+                    val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
+
                     val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
                         action = SosForegroundService.ACTION_TRIGGER_SOS
+                        putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
+                        putExtra(SosForegroundService.EXTRA_MESSAGE, message)
                     }
                     startService(serviceIntent)
                     result.success(true)
@@ -124,12 +137,27 @@ class MainActivity : FlutterActivity() {
                     startService(serviceIntent)
                     result.success(true)
                 }
+
+                "stopLiveLocation" -> {
+                    val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
+                        action = "ACTION_STOP_LIVE_LOCATION"
+                    }
+                    startService(serviceIntent)
+                    result.success(true)
+                }
                 
 
 
                 "triggerSosAlert" -> {
+                    val userId = call.argument<String>("userId") ?: "unknown"
+                    val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
+                    val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
+
                     val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
                         action = SosForegroundService.ACTION_EXECUTE_SOS_NOW
+                        putExtra("EXTRA_USER_ID", userId)
+                        putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
+                        putExtra(SosForegroundService.EXTRA_MESSAGE, message)
                     }
                     startService(serviceIntent)
                     

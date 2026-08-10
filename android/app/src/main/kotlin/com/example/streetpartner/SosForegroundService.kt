@@ -26,10 +26,15 @@ import android.os.IBinder
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.telecom.TelecomManager
 import android.telephony.SmsManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlin.math.sqrt
+import com.google.firebase.firestore.FirebaseFirestore
+import android.os.Handler
+import android.os.Looper
+import android.location.LocationListener
 
 class SosForegroundService : Service(), SensorEventListener {
 
@@ -46,6 +51,7 @@ class SosForegroundService : Service(), SensorEventListener {
         const val EXTRA_PHONE_NUMBERS = "EXTRA_PHONE_NUMBERS"
         const val EXTRA_MESSAGE = "EXTRA_MESSAGE"
         const val EXTRA_CALL_EMERGENCY = "EXTRA_CALL_EMERGENCY"
+        const val ACTION_STOP_LIVE_LOCATION = "ACTION_STOP_LIVE_LOCATION"
     }
 
     private var sensorManager: SensorManager? = null
@@ -65,6 +71,23 @@ class SosForegroundService : Service(), SensorEventListener {
     private var phoneNumbers: List<String> = listOf("112")
     private var sosMessage: String = "EMERGENCY SOS: I need immediate help!"
     private var callEmergency: Boolean = true
+    private var userId: String = "unknown"
+
+    private var isLiveLocationActive = false
+    private val liveLocationHandler = Handler(Looper.getMainLooper())
+    private var liveLocationRunnable: Runnable? = null
+    private val LIVE_LOCATION_INTERVAL_MS: Long = 10000 // 10 seconds
+    private var liveLocationStartTime: Long = 0
+
+    private var latestLocation: Location? = null
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            latestLocation = location
+        }
+        override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {}
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -86,10 +109,12 @@ class SosForegroundService : Service(), SensorEventListener {
                 phoneNumbers = intent?.getStringArrayListExtra(EXTRA_PHONE_NUMBERS) ?: phoneNumbers
                 sosMessage = intent?.getStringExtra(EXTRA_MESSAGE) ?: sosMessage
                 callEmergency = intent?.getBooleanExtra(EXTRA_CALL_EMERGENCY, true) ?: callEmergency
-                
+                userId = intent?.getStringExtra("EXTRA_USER_ID") ?: userId
                 startForeground(NOTIFICATION_ID, buildNotification(-1))
             }
             ACTION_TRIGGER_SOS -> {
+                intent?.getStringArrayListExtra(EXTRA_PHONE_NUMBERS)?.let { if (it.isNotEmpty()) phoneNumbers = it }
+                intent?.getStringExtra(EXTRA_MESSAGE)?.let { sosMessage = it }
                 startForeground(NOTIFICATION_ID, buildNotification(-1))
                 startSosCountdown()
             }
@@ -98,9 +123,15 @@ class SosForegroundService : Service(), SensorEventListener {
                 stopSosCountdown()
             }
             ACTION_EXECUTE_SOS_NOW -> {
+                intent?.getStringArrayListExtra(EXTRA_PHONE_NUMBERS)?.let { if (it.isNotEmpty()) phoneNumbers = it }
+                intent?.getStringExtra(EXTRA_MESSAGE)?.let { sosMessage = it }
+                userId = intent?.getStringExtra("EXTRA_USER_ID") ?: userId
                 startForeground(NOTIFICATION_ID, buildNotification(-1))
                 stopSosCountdown()
                 executeSosPayload()
+            }
+            ACTION_STOP_LIVE_LOCATION -> {
+                stopLiveLocationLoop()
             }
             ACTION_STOP_FOREGROUND_SERVICE -> {
                 stopForeground(true)
@@ -119,6 +150,7 @@ class SosForegroundService : Service(), SensorEventListener {
         super.onDestroy()
         stopSosCountdown()
         stopShakeListener()
+        stopLiveLocationLoop()
     }
 
     private fun createNotificationChannel() {
@@ -157,6 +189,9 @@ class SosForegroundService : Service(), SensorEventListener {
             builder.setContentTitle("SOS Alert Triggered!")
             builder.setContentText("SOS Dispatched in ${secondsLeft}s...")
             builder.color = ContextCompat.getColor(this, android.R.color.holo_red_dark)
+            
+            // Critical for waking the screen from sleep/background
+            builder.setFullScreenIntent(pendingIntent, true)
         } else {
             builder.setContentTitle("StreetPartner SOS Service Active")
             builder.setContentText("Shake 3 times or tap TRIGGER to dispatch SOS")
@@ -242,13 +277,10 @@ class SosForegroundService : Service(), SensorEventListener {
     }
 
     private fun executeSosPayload() {
-        val locationMap = fetchLocationData()
+        startLiveLocationLoop()
 
-        val fullMessage = if (locationMap != null) {
-            "$sosMessage Location: https://maps.google.com/?q=${locationMap["latitude"]},${locationMap["longitude"]}"
-        } else {
-            "$sosMessage Location: GPS coordinates unavailable"
-        }
+        // Provide web link for live location tracking
+        val fullMessage = "$sosMessage Live Location: https://streetpartner.web.app/?session=$userId"
 
         // SMS
         for (number in phoneNumbers) {
@@ -257,9 +289,76 @@ class SosForegroundService : Service(), SensorEventListener {
             }
         }
 
-        // Call
-        if (callEmergency && phoneNumbers.isNotEmpty()) {
-            initiateDirectPhoneCall(phoneNumbers.first())
+        // Call hardcoded official emergency number (using user's number for testing)
+        if (callEmergency) {
+            initiateDirectPhoneCall("9381117370")
+        }
+    }
+
+    private fun startLiveLocationLoop() {
+        if (isLiveLocationActive) return
+        isLiveLocationActive = true
+        liveLocationStartTime = System.currentTimeMillis()
+        
+        try {
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 2f, locationListener, Looper.getMainLooper())
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 2f, locationListener, Looper.getMainLooper())
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        liveLocationRunnable = object : Runnable {
+            override fun run() {
+                if (!isLiveLocationActive) {
+                    stopLiveLocationLoop()
+                    return
+                }
+                
+                val locationMap = fetchLocationData()
+                if (userId != "unknown") {
+                    try {
+                        val db = FirebaseFirestore.getInstance()
+                        val data = hashMapOf<String, Any>(
+                            "timestamp" to System.currentTimeMillis(),
+                            "active" to true
+                        )
+                        if (locationMap != null) {
+                            data["latitude"] = locationMap["latitude"]!!
+                            data["longitude"] = locationMap["longitude"]!!
+                            data["accuracy"] = locationMap["accuracy"]!!
+                        }
+                        db.collection("sos_sessions").document(userId).set(data)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                
+                liveLocationHandler.postDelayed(this, LIVE_LOCATION_INTERVAL_MS)
+            }
+        }
+        liveLocationHandler.post(liveLocationRunnable!!)
+    }
+
+    private fun stopLiveLocationLoop() {
+        isLiveLocationActive = false
+        liveLocationRunnable?.let { liveLocationHandler.removeCallbacks(it) }
+        liveLocationRunnable = null
+        
+        try {
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            locationManager.removeUpdates(locationListener)
+        } catch (e: Exception) {}
+        
+        if (userId != "unknown") {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                db.collection("sos_sessions").document(userId).update("active", false)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -367,19 +466,21 @@ class SosForegroundService : Service(), SensorEventListener {
 
     private fun fetchLocationData(): HashMap<String, Any>? {
         try {
-            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-            val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            var location = latestLocation
 
-            var location: Location? = null
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            if (location == null) {
+                val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
-                if (isGpsEnabled) {
-                    location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                }
-                if (location == null && isNetworkEnabled) {
-                    location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    if (isGpsEnabled) {
+                        location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    }
+                    if (location == null && isNetworkEnabled) {
+                        location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                    }
                 }
             }
 
@@ -419,11 +520,17 @@ class SosForegroundService : Service(), SensorEventListener {
     private fun initiateDirectPhoneCall(phoneNumber: String) {
         try {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
-                val callIntent = Intent(Intent.ACTION_CALL).apply {
-                    data = Uri.parse("tel:$phoneNumber")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                // Background activity starts are blocked on Android 10+. TelecomManager bypasses this restriction.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                    telecomManager.placeCall(Uri.parse("tel:$phoneNumber"), null)
+                } else {
+                    val callIntent = Intent(Intent.ACTION_CALL).apply {
+                        data = Uri.parse("tel:$phoneNumber")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(callIntent)
                 }
-                startActivity(callIntent)
             } else {
                 val dialIntent = Intent(Intent.ACTION_DIAL).apply {
                     data = Uri.parse("tel:$phoneNumber")

@@ -43,19 +43,34 @@ class SosService {
   static Future<void> startSosService({
     required List<String> phoneNumbers,
     required String message,
+    required String userId,
   }) async {
     try {
       await _channel.invokeMethod('startForegroundService', {
         'phoneNumbers': phoneNumbers,
         'message': message,
+        'userId': userId,
       });
     } catch (_) {}
   }
 
-  /// Triggers the 10-second SOS countdown manually.
-  static Future<void> triggerSosCountdown() async {
+  /// Stops the native Android Foreground Service entirely.
+  static Future<void> stopForegroundService() async {
     try {
-      await _channel.invokeMethod('triggerSosCountdown');
+      await _channel.invokeMethod('stopForegroundService');
+    } catch (_) {}
+  }
+
+  /// Triggers the 10-second SOS countdown manually.
+  static Future<void> triggerSosCountdown({
+    required List<String> phoneNumbers,
+    required String message,
+  }) async {
+    try {
+      await _channel.invokeMethod('triggerSosCountdown', {
+        'phoneNumbers': phoneNumbers,
+        'message': message,
+      });
     } catch (_) {}
   }
 
@@ -63,6 +78,13 @@ class SosService {
   static Future<void> stopSosCountdown() async {
     try {
       await _channel.invokeMethod('stopSosCountdown');
+    } catch (_) {}
+  }
+
+  /// Stops the active live location session and service.
+  static Future<void> stopLiveLocation() async {
+    try {
+      await _channel.invokeMethod('stopLiveLocation');
     } catch (_) {}
   }
 
@@ -78,6 +100,7 @@ class SosService {
     List<String> phoneNumbers = const ['112', '+18005550199'],
     String message = 'EMERGENCY SOS: I need immediate assistance!',
     bool callEmergency = true,
+    String userId = '',
   }) async {
     try {
       final result = await _channel
@@ -85,6 +108,7 @@ class SosService {
             'phoneNumbers': phoneNumbers,
             'message': message,
             'callEmergency': callEmergency,
+            'userId': userId,
           });
 
       if (result != null) {

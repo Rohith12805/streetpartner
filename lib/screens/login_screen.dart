@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
 import '../theme/app_theme.dart';
+import '../services/sos_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Clean Authentication Screen with Google Sign-In only
 class LoginScreen extends StatefulWidget {
@@ -15,6 +16,21 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Foolproof guarantee: Stop any running background service when the user reaches the login screen
+    SosService.stopForegroundService();
+    _clearProtectionPreference();
+  }
+
+  Future<void> _clearProtectionPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('background_protection', false);
+    } catch (_) {}
+  }
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);

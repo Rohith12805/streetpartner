@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SOS Live Location - SafeGuard</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Firebase Compat JS -->
+  <script defer src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+
+  <style>
+    body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    #map { height: 100vh; width: 100vw; }
+    #status {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      font-weight: bold;
+      text-align: center;
+    }
+    .status-active { color: #d32f2f; border: 2px solid #d32f2f; }
+    .status-inactive { color: #388e3c; border: 2px solid #388e3c;}
+    
+    /* Pulsing marker CSS */
+    .pulse-marker {
+      background: #d32f2f;
+      border-radius: 50%;
+      height: 20px;
+      width: 20px;
+      position: relative;
+    }
+    .pulse-marker::after {
+      content: "";
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      border-radius: 50%;
+      border: 4px solid #d32f2f;
+      animation: pulse 1.5s infinite ease-out;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Loading...</div>
+  <div id="map"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('session');
+      const statusEl = document.getElementById('status');
+
+      if (!sessionId) {
+        statusEl.textContent = 'Error: Invalid SOS Session Link';
+        return;
+      }
+
+      // Initialize Map
+      const map = L.map('map').setView([0, 0], 2);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Custom pulsing marker
+      const pulseIcon = L.divIcon({
+        className: 'pulse-marker-wrapper',
+        html: '<div class="pulse-marker"></div>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+
+      let marker = null;
+      let firstLoad = true;
+
+      // Wait for Firebase to initialize
+      setTimeout(() => {
+        if (typeof firebase === 'undefined') {
+          statusEl.textContent = 'Error: Firebase not loaded';
+          return;
+        }
+
+        const db = firebase.firestore();
+        
+        db.collection('sos_sessions').doc(sessionId).onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            const lat = data.latitude;
+            const lng = data.longitude;
+            const isActive = data.active;
+            
+            if (lat && lng) {
+              const pos = [lat, lng];
+              
+              if (!marker) {
+                marker = L.marker(pos, {icon: pulseIcon}).addTo(map);
+              } else {
+                marker.setLatLng(pos);
+              }
+
+              if (firstLoad) {
+                map.setView(pos, 16);
+                firstLoad = false;
+              }
+            }
+
+            if (isActive) {
+              statusEl.textContent = 'LIVE: Tracking SOS Location...';
+              statusEl.className = 'status-active';
+            } else {
+              statusEl.textContent = 'User is Safe - Live Location Stopped';
+              statusEl.className = 'status-inactive';
+              if (marker) {
+                // Change marker to non-pulsing when stopped
+                marker.setIcon(new L.Icon.Default());
+              }
+            }
+          } else {
+            statusEl.textContent = 'Error: Session not found or expired';
+          }
+        }, (error) => {
+          console.error("Firestore error:", error);
+          statusEl.textContent = 'Error: Cannot connect to database';
+        });
+      }, 1500);
+    });
+  </script>
+</body>
+</html>
