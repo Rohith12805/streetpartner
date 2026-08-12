@@ -52,6 +52,11 @@ class SosForegroundService : Service(), SensorEventListener {
         const val EXTRA_MESSAGE = "EXTRA_MESSAGE"
         const val EXTRA_CALL_EMERGENCY = "EXTRA_CALL_EMERGENCY"
         const val ACTION_STOP_LIVE_LOCATION = "ACTION_STOP_LIVE_LOCATION"
+        
+        const val ACTION_START_GEOFENCE = "ACTION_START_GEOFENCE"
+        const val ACTION_START_ROUTE = "ACTION_START_ROUTE"
+        const val ACTION_UPDATE_ROUTE = "ACTION_UPDATE_ROUTE"
+        const val ACTION_STOP_MONITORING = "ACTION_STOP_MONITORING"
     }
 
     private var sensorManager: SensorManager? = null
@@ -73,6 +78,11 @@ class SosForegroundService : Service(), SensorEventListener {
     private var callEmergency: Boolean = true
     private var userId: String = "unknown"
 
+    private var monitoringMode: String = "NONE"
+    private var geofenceCenter: Location? = null
+    private var geofenceRadius: Float = 0f
+    private var routePolyline: List<Location> = emptyList()
+
     private var isLiveLocationActive = false
     private val liveLocationHandler = Handler(Looper.getMainLooper())
     private var liveLocationRunnable: Runnable? = null
@@ -83,6 +93,7 @@ class SosForegroundService : Service(), SensorEventListener {
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
             latestLocation = location
+            checkSafetyRules(location)
         }
         override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
         override fun onProviderEnabled(provider: String) {}
@@ -133,6 +144,30 @@ class SosForegroundService : Service(), SensorEventListener {
             ACTION_STOP_LIVE_LOCATION -> {
                 stopLiveLocationLoop()
             }
+            ACTION_START_GEOFENCE -> {
+                monitoringMode = "GEOFENCE"
+                val lat = intent?.getDoubleExtra("lat", 0.0) ?: 0.0
+                val lng = intent?.getDoubleExtra("lng", 0.0) ?: 0.0
+                geofenceRadius = intent?.getFloatExtra("radius", 500f) ?: 500f
+                geofenceCenter = Location("").apply {
+                    latitude = lat
+                    longitude = lng
+                }
+                startPassiveLocationMonitoring()
+            }
+            ACTION_START_ROUTE -> {
+                monitoringMode = "ROUTE"
+                parsePolylineIntent(intent)
+                startPassiveLocationMonitoring()
+            }
+            ACTION_UPDATE_ROUTE -> {
+                if (monitoringMode == "ROUTE") {
+                    parsePolylineIntent(intent)
+                }
+            }
+            ACTION_STOP_MONITORING -> {
+                stopPassiveMonitoring()
+            }
             ACTION_STOP_FOREGROUND_SERVICE -> {
                 stopForeground(true)
                 stopSelf()
@@ -168,7 +203,7 @@ class SosForegroundService : Service(), SensorEventListener {
         }
     }
 
-    private fun buildNotification(secondsLeft: Int): Notification {
+    private fun buildNotification(secondsLeft: Int, isDeviation: Boolean = false): Notification {
         // Intent to open MainActivity
         val pendingIntent: PendingIntent = Intent(this, MainActivity::class.java).let { notificationIntent ->
             notificationIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -186,8 +221,13 @@ class SosForegroundService : Service(), SensorEventListener {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
         if (secondsLeft >= 0) {
-            builder.setContentTitle("SOS Alert Triggered!")
-            builder.setContentText("SOS Dispatched in ${secondsLeft}s...")
+            if (isDeviation) {
+                builder.setContentTitle("ROUTE DEVIATION DETECTED!")
+                builder.setContentText("Escalating to SOS in ${secondsLeft}s...")
+            } else {
+                builder.setContentTitle("SOS Alert Triggered!")
+                builder.setContentText("SOS Dispatched in ${secondsLeft}s...")
+            }
             builder.color = ContextCompat.getColor(this, android.R.color.holo_red_dark)
             
             // Critical for waking the screen from sleep/background
@@ -207,9 +247,9 @@ class SosForegroundService : Service(), SensorEventListener {
         return builder.build()
     }
 
-    private fun updateNotification(secondsLeft: Int) {
+    private fun updateNotification(secondsLeft: Int, isDeviation: Boolean = false) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, buildNotification(secondsLeft))
+        notificationManager.notify(NOTIFICATION_ID, buildNotification(secondsLeft, isDeviation))
     }
 
     private fun startSosCountdown() {
@@ -240,6 +280,7 @@ class SosForegroundService : Service(), SensorEventListener {
                     setPackage(packageName)
                 }
                 intent.putExtra("secondsLeft", secondsLeft)
+                intent.putExtra("isRouteDeviation", false)
                 sendBroadcast(intent)
             }
 
@@ -253,6 +294,7 @@ class SosForegroundService : Service(), SensorEventListener {
                     setPackage(packageName)
                 }
                 intent.putExtra("secondsLeft", 0)
+                intent.putExtra("isRouteDeviation", false)
                 sendBroadcast(intent)
                 
                 executeSosPayload()
@@ -273,7 +315,47 @@ class SosForegroundService : Service(), SensorEventListener {
             setPackage(packageName)
         }
         intent.putExtra("secondsLeft", -1)
+        intent.putExtra("isRouteDeviation", false)
         sendBroadcast(intent)
+    }
+
+    private fun startRouteDeviationCountdown() {
+        if (isCountingDown) return
+        isCountingDown = true
+
+        triggerVibration()
+        playAlarmSound()
+        
+        val wakeIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("SOS_ACTIVE", true)
+        }
+        try { startActivity(wakeIntent) } catch (e: Exception) {}
+
+        countDownTimer = object : CountDownTimer(20000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val secondsLeft = (millisUntilFinished / 1000).toInt()
+                updateNotification(secondsLeft, true)
+                
+                val intent = Intent(ACTION_TIMER_TICK).apply { setPackage(packageName) }
+                intent.putExtra("secondsLeft", secondsLeft)
+                intent.putExtra("isRouteDeviation", true)
+                sendBroadcast(intent)
+            }
+
+            override fun onFinish() {
+                isCountingDown = false
+                stopAlarmSound()
+                updateNotification(-1)
+                
+                val intent = Intent(ACTION_TIMER_TICK).apply { setPackage(packageName) }
+                intent.putExtra("secondsLeft", 0)
+                intent.putExtra("isRouteDeviation", true)
+                sendBroadcast(intent)
+                
+                executeSosPayload()
+            }
+        }.start()
     }
 
     private fun executeSosPayload() {
@@ -290,9 +372,10 @@ class SosForegroundService : Service(), SensorEventListener {
         }
 
         // Call hardcoded official emergency number (using user's number for testing)
-        if (callEmergency) {
-            initiateDirectPhoneCall("9381117370")
-        }
+        // Disabled as per user request to stop call feature
+        // if (callEmergency) {
+        //     initiateDirectPhoneCall("9381117370")
+        // }
     }
 
     private fun startLiveLocationLoop() {
@@ -300,15 +383,7 @@ class SosForegroundService : Service(), SensorEventListener {
         isLiveLocationActive = true
         liveLocationStartTime = System.currentTimeMillis()
         
-        try {
-            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 2f, locationListener, Looper.getMainLooper())
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 2f, locationListener, Looper.getMainLooper())
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        startPassiveLocationMonitoring()
         
         liveLocationRunnable = object : Runnable {
             override fun run() {
@@ -346,11 +421,7 @@ class SosForegroundService : Service(), SensorEventListener {
         isLiveLocationActive = false
         liveLocationRunnable?.let { liveLocationHandler.removeCallbacks(it) }
         liveLocationRunnable = null
-        
-        try {
-            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            locationManager.removeUpdates(locationListener)
-        } catch (e: Exception) {}
+        stopPassiveMonitoring()
         
         if (userId != "unknown") {
             try {
@@ -414,37 +485,11 @@ class SosForegroundService : Service(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun playAlarmSound() {
-        try {
-            stopAlarmSound()
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
-            ringtone = RingtoneManager.getRingtone(applicationContext, alarmUri)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ringtone?.isLooping = true
-            }
-            ringtone?.play()
-        } catch (e: Exception) {
-            try {
-                toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-                toneGenerator?.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK, 10000)
-            } catch (ex: Exception) {
-                ex.printStackTrace()
-            }
-        }
+        // Disabled native alarm sound. Audio is now handled by the Flutter audioplayers package.
     }
 
     private fun stopAlarmSound() {
-        try {
-            ringtone?.stop()
-            ringtone = null
-            toneGenerator?.stopTone()
-            toneGenerator?.release()
-            toneGenerator = null
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        // Disabled native alarm sound. Audio is now handled by the Flutter audioplayers package.
     }
 
     private fun triggerVibration() {
@@ -548,6 +593,92 @@ class SosForegroundService : Service(), SensorEventListener {
             } catch (ex: Exception) {
                 ex.printStackTrace()
             }
+        }
+    }
+
+    private fun checkSafetyRules(currentLocation: Location) {
+        if (isCountingDown) return
+        
+        when (monitoringMode) {
+            "GEOFENCE" -> {
+                val center = geofenceCenter ?: return
+                if (currentLocation.distanceTo(center) > geofenceRadius) {
+                    startSosCountdown()
+                }
+            }
+            "ROUTE" -> {
+                if (routePolyline.isEmpty()) return
+                val dist = distanceToRoute(currentLocation, routePolyline)
+                if (dist > 100) {
+                    startRouteDeviationCountdown()
+                }
+            }
+        }
+    }
+
+    private fun distanceToRoute(loc: Location, polyline: List<Location>): Float {
+        var minDistance = Float.MAX_VALUE
+        for (i in 0 until polyline.size - 1) {
+            val dist = crossTrackDistance(loc, polyline[i], polyline[i+1])
+            if (dist < minDistance) minDistance = dist
+        }
+        return minDistance
+    }
+    
+    private fun crossTrackDistance(p: Location, a: Location, b: Location): Float {
+        val latMid = Math.toRadians((a.latitude + b.latitude) / 2.0)
+        val rEarth = 6371000f
+        
+        val pX = (Math.toRadians(p.longitude - a.longitude) * Math.cos(latMid) * rEarth).toFloat()
+        val pY = (Math.toRadians(p.latitude - a.latitude) * rEarth).toFloat()
+        val bX = (Math.toRadians(b.longitude - a.longitude) * Math.cos(latMid) * rEarth).toFloat()
+        val bY = (Math.toRadians(b.latitude - a.latitude) * rEarth).toFloat()
+        
+        val lineLen2 = bX*bX + bY*bY
+        if (lineLen2 == 0f) return p.distanceTo(a)
+        
+        val t = Math.max(0f, Math.min(1f, (pX * bX + pY * bY) / lineLen2))
+        val projX = t * bX
+        val projY = t * bY
+        val dx = pX - projX
+        val dy = pY - projY
+        return sqrt(dx*dx + dy*dy)
+    }
+
+    private fun startPassiveLocationMonitoring() {
+        try {
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 2f, locationListener, Looper.getMainLooper())
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 2f, locationListener, Looper.getMainLooper())
+            }
+        } catch (e: Exception) {}
+    }
+
+    private fun stopPassiveMonitoring() {
+        monitoringMode = "NONE"
+        geofenceCenter = null
+        routePolyline = emptyList()
+        if (!isLiveLocationActive) {
+            try {
+                val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                locationManager.removeUpdates(locationListener)
+            } catch (e: Exception) {}
+        }
+    }
+
+    private fun parsePolylineIntent(intent: Intent?) {
+        val lats = intent?.getDoubleArrayExtra("polyLats")
+        val lngs = intent?.getDoubleArrayExtra("polyLngs")
+        if (lats != null && lngs != null && lats.size == lngs.size) {
+            val list = mutableListOf<Location>()
+            for (i in lats.indices) {
+                list.add(Location("").apply {
+                    latitude = lats[i]
+                    longitude = lngs[i]
+                })
+            }
+            routePolyline = list
         }
     }
 }

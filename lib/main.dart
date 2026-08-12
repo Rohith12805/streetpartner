@@ -9,7 +9,9 @@ import 'screens/home_dashboard_screen.dart';
 
 import 'screens/registration_screen.dart';
 import 'screens/profile_management_screen.dart';
+import 'screens/fencing_hub_screen.dart';
 import 'screens/geofencing_screen.dart';
+import 'screens/route_fencing_screen.dart';
 import 'screens/fake_call_generator_screen.dart';
 import 'screens/area_safety_index_screen.dart';
 import 'screens/nearby_emergency_services_screen.dart';
@@ -107,7 +109,9 @@ class SafeGuardApp extends StatelessWidget {
           '/home': (ctx) => const HomeDashboardScreen(),
           '/dashboard': (ctx) => const HomeDashboardScreen(),
           '/profile': (ctx) => const ProfileManagementScreen(),
+          '/fencing-hub': (ctx) => const FencingHubScreen(),
           '/geofencing': (ctx) => const GeofencingScreen(),
+          '/route-fencing': (ctx) => const RouteFencingScreen(),
           '/fake-call': (ctx) => const FakeCallGeneratorScreen(),
           '/safety-index': (ctx) => const AreaSafetyIndexScreen(),
           '/emergency-services': (ctx) => const NearbyEmergencyServicesScreen(),

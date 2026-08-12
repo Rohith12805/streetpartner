@@ -19,6 +19,11 @@ dependencies:
   cloud_firestore: ^6.8.0
   image_picker: ^1.2.3
   firebase_storage: ^13.4.6
+  audioplayers: ^6.1.0
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
+  http: ^1.6.0
+  geolocator: ^14.0.3
 
 
 dev_dependencies:
@@ -28,3 +33,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/audio/siren.mp3

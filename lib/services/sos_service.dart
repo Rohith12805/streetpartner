@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class SosResult {
   final bool success;
@@ -39,6 +40,33 @@ class SosService {
     'com.example.streetpartner/sos_timer_events',
   );
 
+  static final AudioPlayer _audioPlayer = AudioPlayer();
+
+  static Future<void> playSiren() async {
+    try {
+      await _audioPlayer.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: true,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.alarm,
+          audioFocus: AndroidAudioFocus.gainTransient,
+        ),
+      ));
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      await _audioPlayer.play(AssetSource('audio/siren.mp3'));
+    } catch (e, stacktrace) {
+      print('AudioPlayer Error: $e');
+      print(stacktrace);
+    }
+  }
+
+  static Future<void> stopSiren() async {
+    try {
+      await _audioPlayer.stop();
+    } catch (_) {}
+  }
+
   /// Starts the native Android Foreground Service.
   static Future<void> startSosService({
     required List<String> phoneNumbers,
@@ -76,6 +104,7 @@ class SosService {
 
   /// Stops the ongoing SOS countdown and resets the notification.
   static Future<void> stopSosCountdown() async {
+    stopSiren();
     try {
       await _channel.invokeMethod('stopSosCountdown');
     } catch (_) {}
@@ -89,9 +118,9 @@ class SosService {
   }
 
   /// Gets a stream of timer ticks from the native foreground service.
-  /// Yields remaining seconds, or -1 if stopped/finished.
-  static Stream<int> get timerTickStream {
-    return _eventChannel.receiveBroadcastStream().map((event) => event as int);
+  /// Stream of timer ticks during an active SOS countdown
+  static Stream<Map<dynamic, dynamic>> get timerTickStream {
+    return _eventChannel.receiveBroadcastStream().map((event) => event as Map<dynamic, dynamic>);
   }
 
   /// Triggers an emergency SOS alert by making native platform calls for
@@ -99,7 +128,6 @@ class SosService {
   static Future<SosResult> triggerSosAlert({
     List<String> phoneNumbers = const ['112', '+18005550199'],
     String message = 'EMERGENCY SOS: I need immediate assistance!',
-    bool callEmergency = true,
     String userId = '',
   }) async {
     try {
@@ -107,7 +135,6 @@ class SosService {
           .invokeMethod<Map<dynamic, dynamic>>('triggerSosAlert', {
             'phoneNumbers': phoneNumbers,
             'message': message,
-            'callEmergency': callEmergency,
             'userId': userId,
           });
 
@@ -164,16 +191,16 @@ class SosService {
         'checkPermissions',
       );
       if (result != null) {
-        return Map<String, bool>.from(result);
+        final permissions = Map<String, bool>.from(result);
+        return {
+          'sms': permissions['sms'] ?? false,
+          'call': permissions['call'] ?? false,
+          'location': permissions['location'] ?? false,
+          'allGranted': permissions['allGranted'] ?? false,
+        };
       }
     } on PlatformException catch (_) {}
-    return {
-      'sms': false,
-      'call': false,
-      'location': false,
-      'notification': false,
-      'allGranted': false,
-    };
+    return {'sms': false, 'call': false, 'location': false, 'allGranted': false};
   }
 
   /// Requests permissions natively from Android OS.
@@ -184,5 +211,37 @@ class SosService {
     } on PlatformException catch (_) {
       return false;
     }
+  }
+
+  static Future<void> startGeofenceMonitoring(double lat, double lng, double radius) async {
+    try {
+      await _channel.invokeMethod('startGeofenceMonitoring', {
+        'lat': lat,
+        'lng': lng,
+        'radius': radius,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> startRouteMonitoring(List<Map<String, double>> polyline) async {
+    try {
+      await _channel.invokeMethod('startRouteMonitoring', {
+        'polyline': polyline,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> updateRouteMonitoring(List<Map<String, double>> polyline) async {
+    try {
+      await _channel.invokeMethod('updateRouteMonitoring', {
+        'polyline': polyline,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> stopMonitoring() async {
+    try {
+      await _channel.invokeMethod('stopMonitoring');
+    } catch (_) {}
   }
 }

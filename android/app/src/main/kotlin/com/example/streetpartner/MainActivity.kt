@@ -28,7 +28,12 @@ class MainActivity : FlutterActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == SosForegroundService.ACTION_TIMER_TICK) {
                 val secondsLeft = intent.getIntExtra("secondsLeft", -1)
-                timerEventSink?.success(secondsLeft)
+                val isRouteDeviation = intent.getBooleanExtra("isRouteDeviation", false)
+                val map = hashMapOf<String, Any>(
+                    "secondsLeft" to secondsLeft,
+                    "isRouteDeviation" to isRouteDeviation
+                )
+                timerEventSink?.success(map)
             }
         }
     }
@@ -145,8 +150,57 @@ class MainActivity : FlutterActivity() {
                     startService(serviceIntent)
                     result.success(true)
                 }
-                
 
+                "startGeofenceMonitoring" -> {
+                    val lat = call.argument<Double>("lat") ?: 0.0
+                    val lng = call.argument<Double>("lng") ?: 0.0
+                    val radius = call.argument<Double>("radius")?.toFloat() ?: 500f
+                    
+                    val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
+                        action = SosForegroundService.ACTION_START_GEOFENCE
+                        putExtra("lat", lat)
+                        putExtra("lng", lng)
+                        putExtra("radius", radius)
+                    }
+                    startService(serviceIntent)
+                    result.success(true)
+                }
+
+                "startRouteMonitoring" -> {
+                    val polyline = call.argument<List<Map<String, Double>>>("polyline") ?: arrayListOf()
+                    val lats = polyline.map { it["lat"] ?: 0.0 }.toDoubleArray()
+                    val lngs = polyline.map { it["lng"] ?: 0.0 }.toDoubleArray()
+                    
+                    val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
+                        action = SosForegroundService.ACTION_START_ROUTE
+                        putExtra("polyLats", lats)
+                        putExtra("polyLngs", lngs)
+                    }
+                    startService(serviceIntent)
+                    result.success(true)
+                }
+
+                "updateRouteMonitoring" -> {
+                    val polyline = call.argument<List<Map<String, Double>>>("polyline") ?: arrayListOf()
+                    val lats = polyline.map { it["lat"] ?: 0.0 }.toDoubleArray()
+                    val lngs = polyline.map { it["lng"] ?: 0.0 }.toDoubleArray()
+                    
+                    val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
+                        action = SosForegroundService.ACTION_UPDATE_ROUTE
+                        putExtra("polyLats", lats)
+                        putExtra("polyLngs", lngs)
+                    }
+                    startService(serviceIntent)
+                    result.success(true)
+                }
+
+                "stopMonitoring" -> {
+                    val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
+                        action = SosForegroundService.ACTION_STOP_MONITORING
+                    }
+                    startService(serviceIntent)
+                    result.success(true)
+                }
 
                 "triggerSosAlert" -> {
                     val userId = call.argument<String>("userId") ?: "unknown"

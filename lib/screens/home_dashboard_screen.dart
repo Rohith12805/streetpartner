@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/feature_card.dart';
@@ -27,7 +30,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   List<String> _targetNumbers = ['112', '911'];
   String _userName = 'Unknown User';
 
-  StreamSubscription<int>? _timerSubscription;
+  StreamSubscription<Map<dynamic, dynamic>>? _timerSubscription;
   StateSetter? _modalSetState;
 
   @override
@@ -41,18 +44,23 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
 
     // Listen to timer ticks from Native Foreground Service
-    _timerSubscription = SosService.timerTickStream.listen((tick) {
+    _timerSubscription = SosService.timerTickStream.listen((event) {
       if (!mounted) return;
+
+      int tick = event['secondsLeft'] ?? -1;
+      bool isRouteDeviation = event['isRouteDeviation'] ?? false;
 
       if (tick > 0) {
         _secondsLeft = tick;
         if (!_isModalOpen) {
-          _showSosCountdownDialog();
+          SosService.playSiren();
+          _showSosCountdownDialog(isRouteDeviation);
         } else {
           _modalSetState?.call(() {});
         }
       } else if (tick == 0) {
         // Countdown finished, alert is dispatching
+        SosService.stopSiren();
         if (_isModalOpen) {
           _isModalOpen = false;
           Navigator.of(context, rootNavigator: true).pop();
@@ -60,6 +68,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         _onSosDispatched();
       } else if (tick == -1) {
         // Countdown cancelled
+        SosService.stopSiren();
         if (_isModalOpen) {
           _isModalOpen = false;
           Navigator.of(context, rootNavigator: true).pop();
@@ -165,7 +174,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
-  void _showSosCountdownDialog() {
+  void _showSosCountdownDialog(bool isRouteDeviation) {
     if (_isModalOpen) return;
     _isModalOpen = true;
 
@@ -193,7 +202,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'EMERGENCY SOS',
+                      isRouteDeviation ? 'ROUTE DEVIATION' : 'EMERGENCY SOS',
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -207,7 +216,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Emergency alarm sounding.',
+                    isRouteDeviation 
+                        ? 'You have deviated from your safe route!' 
+                        : 'Emergency alarm sounding.',
                     style: GoogleFonts.inter(
                       color: Colors.white70,
                       fontSize: 13,
@@ -234,7 +245,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Tap STOP SOS within 10s to stop siren, calls, and SMS messages.',
+                    isRouteDeviation
+                        ? 'Tap REROUTE to update your path, or SOS will dispatch in 20s.'
+                        : 'Tap STOP SOS within 10s to stop siren, calls, and SMS messages.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
                       color: Colors.white70,
@@ -245,18 +258,34 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 ],
               ),
               actions: [
-                TextButton(
-                  onPressed: () {
-                    SosService.stopSosCountdown();
-                  },
-                  child: Text(
-                    'STOP SOS',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                if (isRouteDeviation)
+                  TextButton(
+                    onPressed: () {
+                      SosService.stopSosCountdown();
+                      _mockRerouteAndResume();
+                    },
+                    child: Text(
+                      'REROUTE',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  TextButton(
+                    onPressed: () {
+                      SosService.stopSosCountdown();
+                      SosService.stopMonitoring();
+                    },
+                    child: Text(
+                      'STOP SOS',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.sosRed,
@@ -291,7 +320,58 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
   }
 
+  void _mockRerouteAndResume() async {
+    if (_isModalOpen) {
+      _isModalOpen = false;
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rerouting... Fetching new directions.')),
+    );
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      double? destLat = prefs.getDouble('route_dest_lat');
+      double? destLng = prefs.getDouble('route_dest_lng');
+      if (destLat == null || destLng == null) throw Exception('No destination saved.');
+
+      // Get current location
+      Position pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      
+      // Fetch from OSRM
+      final url = 'http://router.project-osrm.org/route/v1/driving/${pos.longitude},${pos.latitude};$destLng,$destLat?geometries=geojson';
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final coords = data['routes'][0]['geometry']['coordinates'] as List;
+        
+        List<Map<String, double>> newPolyline = coords.map((c) => {
+          'lat': (c[1] as num).toDouble(),
+          'lng': (c[0] as num).toDouble(),
+        }).toList();
+        
+        await SosService.updateRouteMonitoring(newPolyline);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Route updated! Resuming Route Guard.')),
+          );
+        }
+      } else {
+        throw Exception('Failed to fetch route');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to reroute: $e')),
+        );
+      }
+    }
+  }
+
   void _onSosDispatched() {
+    SosService.stopMonitoring();
     if (mounted) {
       setState(() {
         _isLiveLocationActive = true;
@@ -598,9 +678,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         icon: Icons.radar_rounded,
         iconBg: const Color(0xFF2A73E1),
         iconColor: Colors.white,
-        title: 'Geo-Fencing',
-        description: 'Create virtual safety\nperimeters.',
-        route: '/geofencing',
+        title: 'Fencing',
+        description: 'Geo & Route\nperimeters.',
+        route: '/fencing-hub',
       ),
       _FeatureData(
         icon: Icons.phone_in_talk_rounded,
