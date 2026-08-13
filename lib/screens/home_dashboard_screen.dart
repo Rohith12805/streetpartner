@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/feature_card.dart';
 import '../services/sos_service.dart';
+import '../services/emergency_services_service.dart';
 
 /// Home Dashboard — Figma node 1:149
 /// AppBar with logo + profile avatar, large SOS button centered, 2x2 feature grid
@@ -26,6 +27,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   int _secondsLeft = 10;
   bool _isLiveLocationActive = false;
   bool _isBackgroundProtectionEnabled = false;
+
+  String? _currentPlaceName;
+  String? _currentCoordsText;
+  bool _isLoadingLocation = true;
+  StreamSubscription<Position>? _positionStreamSub;
+  DateTime? _lastReverseGeocodeTime;
   
   List<String> _targetNumbers = ['112', '911'];
   String _userName = 'Unknown User';
@@ -38,9 +45,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     super.initState();
     // Auto-request Android OS permissions (CALL_PHONE, SEND_SMS, GPS Location, Notifications)
     SosService.requestPermissions().then((_) {
+      _initRealtimeLocation();
       _fetchEmergencyContacts().then((_) {
         _loadProtectionState();
       });
+      // Start background prefetch of nearby emergency services for instant opening
+      EmergencyServicesService.prefetchEmergencyServicesInBackground();
     });
 
     // Listen to timer ticks from Native Foreground Service
@@ -86,6 +96,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void dispose() {
     _timerSubscription?.cancel();
+    _positionStreamSub?.cancel();
     super.dispose();
   }
 
@@ -120,6 +131,133 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Active Protection Mode Disabled.')),
       );
+    }
+  }
+
+  Future<void> _initRealtimeLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          setState(() {
+            _currentPlaceName = 'GPS Turned Off';
+            _currentCoordsText = 'Tap to enable Device Location';
+            _isLoadingLocation = false;
+          });
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
+        if (mounted) {
+          setState(() {
+            _currentPlaceName = 'Location Permission Required';
+            _currentCoordsText = 'Tap to grant GPS permission';
+            _isLoadingLocation = false;
+          });
+        }
+        return;
+      }
+
+      // 1. INSTANT FALLBACK: Get last known position immediately (<0.1s!)
+      Position? lastPos = await Geolocator.getLastKnownPosition();
+      if (lastPos != null && mounted) {
+        _updateLocationUI(lastPos);
+      }
+
+      // 2. REAL-TIME STREAM: Subscribe to live position updates
+      const locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      );
+
+      _positionStreamSub?.cancel();
+      _positionStreamSub = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen((Position pos) {
+        if (mounted) {
+          _updateLocationUI(pos);
+        }
+      }, onError: (_) {});
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _currentPlaceName = 'Current Location';
+          _currentCoordsText = 'Tap to view Geofencing Hub';
+          _isLoadingLocation = false;
+        });
+      }
+    }
+  }
+
+  void _updateLocationUI(Position pos) {
+    String latStr = pos.latitude.toStringAsFixed(4);
+    String lngStr = pos.longitude.toStringAsFixed(4);
+    String coordsText = 'Coordinates: $latStr, $lngStr';
+
+    setState(() {
+      _currentCoordsText = coordsText;
+      if (_currentPlaceName == null || _currentPlaceName == 'Fetching current location...' || _currentPlaceName == 'GPS Turned Off') {
+        _currentPlaceName = 'Lat: $latStr, Lng: $lngStr';
+      }
+      _isLoadingLocation = false;
+    });
+
+    // Throttle OpenStreetMap Nominatim reverse geocoding to 1 call per 5 seconds
+    final now = DateTime.now();
+    if (_lastReverseGeocodeTime == null ||
+        now.difference(_lastReverseGeocodeTime!) > const Duration(seconds: 5)) {
+      _lastReverseGeocodeTime = now;
+      _reverseGeocodeOSM(pos.latitude, pos.longitude);
+    }
+  }
+
+  Future<void> _reverseGeocodeOSM(double lat, double lng) async {
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=16',
+      );
+      final response = await http.get(url, headers: {
+        'User-Agent': 'StreetPartnerSafetyApp/1.0 (contact: support@streetpartner.app)',
+        'Accept-Language': 'en',
+      }).timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final address = data['address'];
+        if (address != null) {
+          String name = address['suburb'] ??
+              address['neighbourhood'] ??
+              address['residential'] ??
+              address['road'] ??
+              address['city_district'] ??
+              address['city'] ??
+              address['town'] ??
+              address['village'] ??
+              address['county'] ??
+              '';
+          String city = address['city'] ?? address['state'] ?? '';
+          String placeResult = '';
+          if (name.isNotEmpty && city.isNotEmpty && name != city) {
+            placeResult = '$name, $city';
+          } else if (name.isNotEmpty) {
+            placeResult = name;
+          } else if (city.isNotEmpty) {
+            placeResult = city;
+          } else {
+            placeResult = data['display_name']?.split(',').take(2).join(',') ?? '';
+          }
+
+          if (placeResult.isNotEmpty && mounted) {
+            setState(() {
+              _currentPlaceName = placeResult;
+            });
+          }
+        }
+      }
+    } catch (_) {
+      // Fallback coordinates are already safely displayed on UI
     }
   }
 
@@ -424,6 +562,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           children: [
             if (_isLiveLocationActive) _buildLiveLocationBanner(),
 
+            // ── Live Location & Geofencing Card ────────────────────────
+            _buildLiveLocationCard(context),
+
             // ── SOS Button Section ──────────────────────────────────────
             _buildSosSection(context),
 
@@ -505,6 +646,129 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLiveLocationCard(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.2)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            if (_currentPlaceName == 'GPS Turned Off') {
+              Geolocator.openLocationSettings();
+            } else if (_currentPlaceName == 'Location Permission Required') {
+              SosService.requestPermissions().then((_) => _initRealtimeLocation());
+            } else {
+              Navigator.pushNamed(context, '/geofencing');
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.my_location_rounded,
+                    color: AppTheme.primary,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'LIVE LOCATION & FENCING',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primary,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Active',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _isLoadingLocation
+                            ? 'Fetching current location...'
+                            : (_currentPlaceName ?? 'Current Location'),
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.onBackground,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _isLoadingLocation
+                            ? 'Locating via GPS...'
+                            : (_currentCoordsText ?? 'Tap to configure Geofence & Route Guard'),
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppTheme.onSurfaceLight,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.onSurfaceLight,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

@@ -29,6 +29,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
   List<LatLng> _routePolyline = [];
   bool _isLoading = true;
   bool _isRouteActive = false;
+  bool _autoCenterCamera = true;
   
   StreamSubscription<Position>? _positionStream;
 
@@ -70,8 +71,32 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
         _destination = _currentLocation;
         _isLoading = false;
       });
-      _mapController.move(_currentLocation, 15.0);
+      try {
+        _mapController.move(_currentLocation, 15.0);
+      } catch (_) {}
     }
+
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 0,
+    );
+
+    _positionStream?.cancel();
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position livePos) {
+      if (mounted) {
+        final newLoc = LatLng(livePos.latitude, livePos.longitude);
+        setState(() {
+          _currentLocation = newLoc;
+        });
+        if (_autoCenterCamera) {
+          try {
+            _mapController.move(newLoc, _mapController.camera.zoom);
+          } catch (_) {}
+        }
+      }
+    });
   }
 
   void _onSearchChanged(String query) {
@@ -134,7 +159,9 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to fetch route.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to fetch route.')));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -338,6 +365,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
                       ),
                       child: ListView.separated(
                         shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         padding: EdgeInsets.zero,
                         itemCount: _searchResults.length,
                         separatorBuilder: (ctx, i) => const Divider(height: 1),

@@ -92,6 +92,10 @@ class SosForegroundService : Service(), SensorEventListener {
     private var latestLocation: Location? = null
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
+            // Ignore inaccurate location fixes (> 100m accuracy) to prevent false SOS alerts
+            if (location.hasAccuracy() && location.accuracy > 100f) {
+                return
+            }
             latestLocation = location
             checkSafetyRules(location)
         }
@@ -214,7 +218,7 @@ class SosForegroundService : Service(), SensorEventListener {
         }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert) // Replace with your own app icon later
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -602,6 +606,7 @@ class SosForegroundService : Service(), SensorEventListener {
         when (monitoringMode) {
             "GEOFENCE" -> {
                 val center = geofenceCenter ?: return
+                if (center.latitude == 0.0 && center.longitude == 0.0) return
                 if (currentLocation.distanceTo(center) > geofenceRadius) {
                     startSosCountdown()
                 }
