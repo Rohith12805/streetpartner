@@ -302,7 +302,7 @@ class _NearbyEmergencyServicesScreenState
           final Uri nomUrl = Uri.parse(
             'https://nominatim.openstreetmap.org/search?q=$searchKeyword&format=json&bounded=1&viewbox=$minLng,$maxLat,$maxLng,$minLat&limit=30',
           );
-          final response = await http.get(nomUrl, headers: {'User-Agent': 'SafeGuardApp/1.0'}).timeout(const Duration(seconds: 8));
+          final response = await http.get(nomUrl, headers: {'User-Agent': 'SheildApp/1.0'}).timeout(const Duration(seconds: 8));
 
           if (response.statusCode == 200) {
             final List data = json.decode(response.body);
@@ -552,22 +552,34 @@ class _NearbyEmergencyServicesScreenState
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: AppTheme.primary,
                 borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              child: const Icon(
-                Icons.shield_rounded,
-                color: Colors.white,
-                size: 16,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(width: 10),
-            Text(
-              'Nearby Emergency Services',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.onBackground,
+            Expanded(
+              child: Text(
+                'Nearby Emergency Services',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.onBackground,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

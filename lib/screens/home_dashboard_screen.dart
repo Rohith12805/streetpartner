@@ -591,31 +591,39 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       scrolledUnderElevation: 0,
       title: Row(
         children: [
-          // Logo icon (Figma node 1:226)
+          // App Logo icon
           Container(
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.primary, AppTheme.primaryLight],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
               borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: const Icon(
-              Icons.shield_rounded,
-              color: Colors.white,
-              size: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/icon/app_icon.png',
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            'Home Dashboard',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.onBackground,
+          Expanded(
+            child: Text(
+              'Home Dashboard',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.onBackground,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -701,19 +709,23 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            'LIVE LOCATION & FENCING',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.primary,
-                              letterSpacing: 0.6,
+                          Expanded(
+                            child: Text(
+                              'LIVE LOCATION & FENCING',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.primary,
+                                letterSpacing: 0.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 6),
                           Container(
-                            width: 8,
-                            height: 8,
+                            width: 7,
+                            height: 7,
                             decoration: const BoxDecoration(
                               color: Colors.green,
                               shape: BoxShape.circle,

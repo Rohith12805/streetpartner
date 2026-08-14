@@ -162,7 +162,7 @@ class EmergencyServicesService {
           final Uri nomUrl = Uri.parse(
             'https://nominatim.openstreetmap.org/search?q=$searchKeyword&format=json&bounded=1&viewbox=$minLng,$maxLat,$maxLng,$minLat&limit=30',
           );
-          final response = await http.get(nomUrl, headers: {'User-Agent': 'SafeGuardApp/1.0'}).timeout(const Duration(seconds: 7));
+          final response = await http.get(nomUrl, headers: {'User-Agent': 'SheildApp/1.0'}).timeout(const Duration(seconds: 7));
 
           if (response.statusCode == 200) {
             final List data = json.decode(response.body);

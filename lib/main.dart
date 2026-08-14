@@ -56,11 +56,11 @@ void main() async {
     ),
   );
 
-  runApp(const SafeGuardApp());
+  runApp(const SheildApp());
 }
 
-class SafeGuardApp extends StatelessWidget {
-  const SafeGuardApp({super.key});
+class SheildApp extends StatelessWidget {
+  const SheildApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +105,7 @@ class SafeGuardApp extends StatelessWidget {
 
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'SafeGuard — Women Safety',
+      title: 'Sheild',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
 

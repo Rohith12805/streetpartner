@@ -3,6 +3,11 @@ allprojects {
         google()
         mavenCentral()
     }
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.annotation:annotation-experimental:1.4.1")
+        }
+    }
 }
 
 val newBuildDir: Directory =

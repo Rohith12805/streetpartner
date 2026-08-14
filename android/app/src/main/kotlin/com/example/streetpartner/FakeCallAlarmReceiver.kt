@@ -25,7 +25,7 @@ class FakeCallAlarmReceiver : BroadcastReceiver() {
             @Suppress("DEPRECATION")
             val wakeLock = powerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
-                "SafeGuard:FakeCallWakeLock"
+                "Sheild:FakeCallWakeLock"
             )
             wakeLock.acquire(15000) // Acquire lock for 15s to ensure display turns on
         } catch (e: Exception) {

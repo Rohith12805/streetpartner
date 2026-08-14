@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme/app_theme.dart';
+import '../widgets/sheild_brand_text.dart';
 import '../services/sos_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -148,38 +149,27 @@ class _LoginScreenState extends State<LoginScreen> {
           height: 80,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x10000000),
-                blurRadius: 10,
-                offset: Offset(0, 4),
+                color: Color(0x15000000),
+                blurRadius: 14,
+                offset: Offset(0, 5),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(6),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                colors: [AppTheme.primary, AppTheme.primaryLight],
-              ),
-            ),
-            child: const Icon(
-              Icons.shield_rounded,
-              color: Colors.white,
-              size: 40,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Image.asset(
+              'assets/icon/app_icon.png',
+              fit: BoxFit.cover,
             ),
           ),
         ),
         const SizedBox(height: 12),
-        Text(
-          'SafeGuard Security',
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.onBackground,
-          ),
+        const SheildBrandText(
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
         ),
         const SizedBox(height: 4),
         Text(
@@ -256,10 +246,22 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLegalFooter() {
-    return Text(
-      'By signing in, you agree to SafeGuard Terms & Privacy Policy.',
+    return RichText(
       textAlign: TextAlign.center,
-      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceLight),
+      text: TextSpan(
+        style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceLight),
+        children: [
+          const TextSpan(text: 'By signing in, you agree to '),
+          SheildBrandText.span(
+            baseStyle: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppTheme.onSurfaceLight,
+              fontWeight: FontWeight.w600,
+            ),
+            suffix: ' Terms & Privacy Policy.',
+          ),
+        ],
+      ),
     );
   }
 }

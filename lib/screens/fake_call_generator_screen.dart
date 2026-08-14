@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/fake_call.dart';
 import '../services/fake_call_service.dart';
 import '../theme/app_theme.dart';
-import 'fake_incoming_call_screen.dart';
 
 class FakeCallGeneratorScreen extends StatefulWidget {
   const FakeCallGeneratorScreen({super.key});
