@@ -15,12 +15,22 @@ import 'screens/route_fencing_screen.dart';
 import 'screens/fake_call_generator_screen.dart';
 import 'screens/area_safety_index_screen.dart';
 import 'screens/nearby_emergency_services_screen.dart';
+import 'services/fake_call_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 bool _firebaseInitialized = false;
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize FakeCallService for local notification & scheduling
+  try {
+    await FakeCallService.instance.initialize();
+    FakeCallService.instance.navigatorKey = navigatorKey;
+  } catch (e) {
+    debugPrint('FakeCallService init error: $e');
+  }
 
   try {
     await Firebase.initializeApp(
@@ -94,6 +104,7 @@ class SafeGuardApp extends StatelessWidget {
     }
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'SafeGuard — Women Safety',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,

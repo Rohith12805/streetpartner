@@ -1,11 +1,17 @@
 package com.example.streetpartner
 
 import android.Manifest
+import android.app.AlarmManager
+import android.app.KeyguardManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -18,11 +24,51 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
+    companion object {
+        var staticRingtonePlayer: Ringtone? = null
+
+        fun playRingtoneFromReceiver(context: Context) {
+            try {
+                stopRingtoneStatic()
+                var ringtoneUri: Uri? = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
+                if (ringtoneUri == null) {
+                    ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                }
+                if (ringtoneUri == null) {
+                    ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                }
+                if (ringtoneUri != null) {
+                    staticRingtonePlayer = RingtoneManager.getRingtone(context, ringtoneUri)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        staticRingtonePlayer?.isLooping = true
+                    }
+                    staticRingtonePlayer?.play()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        fun stopRingtoneStatic() {
+            try {
+                if (staticRingtonePlayer?.isPlaying == true) {
+                    staticRingtonePlayer?.stop()
+                }
+                staticRingtonePlayer = null
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private final val METHOD_CHANNEL = "com.example.streetpartner/sos_channel"
     private final val EVENT_CHANNEL = "com.example.streetpartner/sos_timer_events"
     private final val PERMISSION_REQUEST_CODE = 1001
 
     private var timerEventSink: EventChannel.EventSink? = null
+    private var ringtonePlayer: Ringtone? = null
+    private var methodChannel: MethodChannel? = null
+    private var pendingFakeCallData: HashMap<String, Any>? = null
     
     private val timerReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -40,17 +86,28 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Handle wake up intent from service
-        if (intent.getBooleanExtra("SOS_ACTIVE", false)) {
-            turnScreenOnAndKeyguardOff()
-        }
+        turnScreenOnAndKeyguardOff()
+        handleFakeCallIntent(intent)
     }
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.getBooleanExtra("SOS_ACTIVE", false)) {
-            turnScreenOnAndKeyguardOff()
+        turnScreenOnAndKeyguardOff()
+        handleFakeCallIntent(intent)
+    }
+
+    private fun handleFakeCallIntent(intent: Intent?) {
+        if (intent != null && intent.getBooleanExtra("SHOW_FAKE_CALL", false)) {
+            val callId = intent.getStringExtra("CALL_ID") ?: ""
+            val callerName = intent.getStringExtra("CALLER_NAME") ?: "Incoming Call"
+            val phoneNumber = intent.getStringExtra("PHONE_NUMBER") ?: ""
+            val callData = hashMapOf<String, Any>(
+                "id" to callId,
+                "callerName" to callerName,
+                "phoneNumber" to phoneNumber
+            )
+            pendingFakeCallData = callData
+            methodChannel?.invokeMethod("onNativeFakeCallTriggered", callData)
         }
     }
     
@@ -58,18 +115,76 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                        or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-            )
+            try {
+                val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                keyguardManager.requestDismissKeyguard(this, null)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
         @Suppress("DEPRECATION")
         window.addFlags(
-            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+                    or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                     or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    or WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
+    }
+
+    private fun scheduleNativeAlarm(callId: String, callerName: String, phoneNumber: String, triggerAtMillis: Long) {
+        try {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(this, FakeCallAlarmReceiver::class.java).apply {
+                action = FakeCallAlarmReceiver.ACTION_FAKE_CALL_ALARM
+                putExtra(FakeCallAlarmReceiver.EXTRA_CALL_ID, callId)
+                putExtra(FakeCallAlarmReceiver.EXTRA_CALLER_NAME, callerName)
+                putExtra(FakeCallAlarmReceiver.EXTRA_PHONE_NUMBER, phoneNumber)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                this,
+                callId.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            val showIntent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("SHOW_FAKE_CALL", true)
+                putExtra("CALL_ID", callId)
+                putExtra("CALLER_NAME", callerName)
+                putExtra("PHONE_NUMBER", phoneNumber)
+            }
+            val showPendingIntent = PendingIntent.getActivity(
+                this,
+                callId.hashCode() + 1,
+                showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun cancelNativeAlarm(callId: String) {
+        try {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(this, FakeCallAlarmReceiver::class.java).apply {
+                action = FakeCallAlarmReceiver.ACTION_FAKE_CALL_ALARM
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                this,
+                callId.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -95,8 +210,37 @@ class MainActivity : FlutterActivity() {
             }
         )
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL).setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
+        methodChannel = channel
+
+        pendingFakeCallData?.let {
+            channel.invokeMethod("onNativeFakeCallTriggered", it)
+        }
+
+        channel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "scheduleNativeFakeCall" -> {
+                    val id = call.argument<String>("id") ?: ""
+                    val callerName = call.argument<String>("callerName") ?: "Incoming Call"
+                    val phoneNumber = call.argument<String>("phoneNumber") ?: ""
+                    val delayMs = call.argument<Number>("delayMs")?.toLong() ?: 10000L
+                    val triggerAtMillis = System.currentTimeMillis() + delayMs
+
+                    scheduleNativeAlarm(id, callerName, phoneNumber, triggerAtMillis)
+                    result.success(true)
+                }
+
+                "cancelNativeFakeCall" -> {
+                    val id = call.argument<String>("id") ?: ""
+                    cancelNativeAlarm(id)
+                    result.success(true)
+                }
+
+                "getInitialFakeCall" -> {
+                    result.success(pendingFakeCallData)
+                    pendingFakeCallData = null
+                }
+
                 "startForegroundService" -> {
                     val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
                     val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
@@ -215,7 +359,6 @@ class MainActivity : FlutterActivity() {
                     }
                     startService(serviceIntent)
                     
-                    // Return mock success because the service handles the actual execution now
                     val response = hashMapOf<String, Any>(
                         "success" to true,
                         "smsStatus" to "Dispatched via background service",
@@ -232,7 +375,6 @@ class MainActivity : FlutterActivity() {
                     val hasCall = ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
                     val hasLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                     
-                    // Also check POST_NOTIFICATIONS for Android 13+
                     val hasNotification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
                     } else {
@@ -265,6 +407,31 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                "playRingtone" -> {
+                    playRingtoneFromReceiver(applicationContext)
+                    result.success(true)
+                }
+
+                "stopRingtone" -> {
+                    stopRingtoneStatic()
+                    stopRingtone()
+                    result.success(true)
+                }
+
+                "wakeUpScreen" -> {
+                    try {
+                        turnScreenOnAndKeyguardOff()
+                        val wakeIntent = Intent(this, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            putExtra("FAKE_CALL_ACTIVE", true)
+                        }
+                        startActivity(wakeIntent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("WAKE_ERROR", e.message, null)
+                    }
+                }
+
                 else -> {
                     result.notImplemented()
                 }
@@ -272,8 +439,21 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun stopRingtone() {
+        try {
+            if (ringtonePlayer?.isPlaying == true) {
+                ringtonePlayer?.stop()
+            }
+            ringtonePlayer = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        stopRingtoneStatic()
+        stopRingtone()
         unregisterReceiver(timerReceiver)
     }
 }
