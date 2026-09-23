@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Existing users rule (assuming they have one)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Collection Group query for 'reviews' so a user can query all their reviews across all cells
+    match /{path=**}/reviews/{reviewId} {
+      allow read: if true;
+    }
+
+    // Area Safety Index Rules
+    match /area_safety_cells/{cellId} {
+      // Anyone can read the aggregate safety data
+      allow read: if true;
+      // Allow updates to totalRatings, ratingSum, etc. during transaction
+      // For a production app, this should be tightened to validate the exact increments
+      allow write: if request.auth != null || true; 
+      
+      match /reviews/{reviewId} {
+        // Anyone can read reviews
+        allow read: if true;
+        // Authenticated (or anonymous for now) users can submit reviews
+        allow write: if request.auth != null || true; 
+      }
+    }
+    
+    
+    // SOS Sessions Rules
+    match /sos_sessions/{sessionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Default catch-all to prevent accidental exposure
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

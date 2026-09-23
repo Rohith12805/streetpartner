@@ -37,6 +37,18 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     _firebaseInitialized = true;
+
+    // Initialize the secondary Admin Firebase project
+    await Firebase.initializeApp(
+      name: 'adminDb',
+      options: const FirebaseOptions(
+        apiKey: 'AIzaSyCb8NaJUQk128aT3Ayl2mZsPwmUUNm_y3k',
+        appId: '1:601907972037:web:12fb87911ef1d50c0bedac',
+        messagingSenderId: '601907972037',
+        projectId: 'streetpartner-admin',
+      ),
+    );
+
   } catch (e) {
     debugPrint('Firebase init error: $e');
   }

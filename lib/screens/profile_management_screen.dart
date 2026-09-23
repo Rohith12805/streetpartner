@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/sos_service.dart';
+import 'my_reviews_screen.dart';
 
 /// Profile Management Screen — Figma node 1:253
 /// AppBar with back arrow, editable profile fields, emergency contacts, Update + Logout buttons
@@ -208,6 +209,38 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                       const SizedBox(height: 24),
 
                       // ── Emergency Contacts section (Figma node 1:383) ─────────────
+
+                      // My Reviews Button
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.rate_review_outlined, color: AppTheme.primary),
+                        ),
+                        title: Text(
+                          'My Safety Reviews',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.onBackground,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'View and delete your previous area ratings',
+                          style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceMid),
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const MyReviewsScreen()),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 24),
                       _buildEmergencyContactsSection(contacts),
                       const SizedBox(height: 24),
 

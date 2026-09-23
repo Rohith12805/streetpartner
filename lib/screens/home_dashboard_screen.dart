@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/feature_card.dart';
 import '../services/sos_service.dart';
+import '../services/admin_database_service.dart';
 import '../services/emergency_services_service.dart';
 
 /// Home Dashboard — Figma node 1:149
@@ -30,12 +31,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   String? _currentPlaceName;
   String? _currentCoordsText;
-  bool _isLoadingLocation = true;
+  Position? _currentPosition;
+    bool _isLoadingLocation = true;
   StreamSubscription<Position>? _positionStreamSub;
   DateTime? _lastReverseGeocodeTime;
   
   List<String> _targetNumbers = ['112', '911'];
   String _userName = 'Unknown User';
+  String _userBloodGroup = 'Unknown';
 
   StreamSubscription<Map<dynamic, dynamic>>? _timerSubscription;
   StateSetter? _modalSetState;
@@ -192,6 +195,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   void _updateLocationUI(Position pos) {
+      _currentPosition = pos;
     String latStr = pos.latitude.toStringAsFixed(4);
     String lngStr = pos.longitude.toStringAsFixed(4);
     String coordsText = 'Coordinates: $latStr, $lngStr';
@@ -510,6 +514,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   void _onSosDispatched() {
     SosService.stopMonitoring();
+    
+    // Add to secondary database
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+    final locationLink = _currentPosition != null ? 'https://www.google.com/maps?q=,' : 'Location unavailable';
+    AdminDatabaseService.reportEmergencyToAdmin(
+      userId: userId,
+      userName: _userName,
+      bloodGroup: _userBloodGroup,
+      liveLocationLink: locationLink,
+    );
+
     if (mounted) {
       setState(() {
         _isLiveLocationActive = true;
@@ -540,6 +555,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   void _stopLiveLocation() {
     SosService.stopLiveLocation();
+    
+    // Clear from secondary database
+    AdminDatabaseService.clearEmergencyFromAdmin(
+      FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
+    );
+    
     setState(() {
       _isLiveLocationActive = false;
     });
@@ -683,7 +704,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             } else if (_currentPlaceName == 'Location Permission Required') {
               SosService.requestPermissions().then((_) => _initRealtimeLocation());
             } else {
-              Navigator.pushNamed(context, '/geofencing');
+              Navigator.pushNamed(context, '/safety-index');
             }
           },
           child: Padding(
@@ -711,7 +732,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'LIVE LOCATION & FENCING',
+                              'LIVE LOCATION & SAFETY INDEX',
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -966,15 +987,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         description: 'Schedule a simulated\nincoming call.',
         route: '/fake-call',
       ),
-      _FeatureData(
-        icon: Icons.bar_chart_rounded,
-        iconBg: AppTheme.divider,
-        iconColor: AppTheme.onSurfaceMid,
-        title: 'Safety Index',
-        description: 'Check local area\nsafety score.',
-        route: '/safety-index',
-      ),
-      _FeatureData(
+_FeatureData(
         icon: Icons.emergency_rounded,
         iconBg: AppTheme.sosRedContainer,
         iconColor: AppTheme.sosRed,
