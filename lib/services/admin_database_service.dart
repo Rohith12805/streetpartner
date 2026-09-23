@@ -16,24 +16,50 @@ class AdminDatabaseService {
     required String userId,
     required String userName,
     required String bloodGroup,
+    required String mobileNumber,
     required String liveLocationLink,
+    double? lat,
+    double? lng,
   }) async {
     final app = _adminApp;
     if (app == null) return;
     
     try {
       final firestore = FirebaseFirestore.instanceFor(app: app);
-      await firestore.collection('emergencies').doc(userId).set({
+      final Map<String, dynamic> data = {
         'userId': userId,
         'userName': userName,
         'bloodGroup': bloodGroup,
+        'mobileNumber': mobileNumber,
         'liveLocationLink': liveLocationLink,
         'timestamp': FieldValue.serverTimestamp(),
         'isActive': true,
-      });
+      };
+      
+      if (lat != null) data['lat'] = lat;
+      if (lng != null) data['lng'] = lng;
+
+      await firestore.collection('emergencies').doc(userId).set(data);
       debugPrint('Successfully reported emergency to admin database');
     } catch (e) {
-      debugPrint('Error reporting emergency to admin database: $e');
+      debugPrint('Error reporting emergency to admin database: ');
+    }
+  }
+
+  static Future<void> updateEmergencyLocation(String userId, double lat, double lng) async {
+    final app = _adminApp;
+    if (app == null) return;
+    
+    try {
+      final firestore = FirebaseFirestore.instanceFor(app: app);
+      await firestore.collection('emergencies').doc(userId).update({
+        'lat': lat,
+        'lng': lng,
+        'liveLocationLink': 'https://streetpartner.web.app/?session=',
+      });
+      debugPrint('Successfully updated emergency location in admin db');
+    } catch (e) {
+      debugPrint('Error updating emergency location in admin db: ');
     }
   }
 
@@ -46,7 +72,7 @@ class AdminDatabaseService {
       await firestore.collection('emergencies').doc(userId).delete();
       debugPrint('Successfully cleared emergency from admin database');
     } catch (e) {
-      debugPrint('Error clearing emergency from admin database: $e');
+      debugPrint('Error clearing emergency from admin database: ');
     }
   }
 }

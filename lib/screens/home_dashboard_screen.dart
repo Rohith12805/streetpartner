@@ -39,6 +39,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   List<String> _targetNumbers = ['112', '911'];
   String _userName = 'Unknown User';
   String _userBloodGroup = 'Unknown';
+  String _userMobileNumber = 'Unknown';
 
   StreamSubscription<Map<dynamic, dynamic>>? _timerSubscription;
   StateSetter? _modalSetState;
@@ -196,6 +197,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   void _updateLocationUI(Position pos) {
       _currentPosition = pos;
+      
+      if (_isLiveLocationActive) {
+        final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+        AdminDatabaseService.updateEmergencyLocation(userId, pos.latitude, pos.longitude);
+      }
     String latStr = pos.latitude.toStringAsFixed(4);
     String lngStr = pos.longitude.toStringAsFixed(4);
     String coordsText = 'Coordinates: $latStr, $lngStr';
@@ -286,6 +292,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           if (mounted) {
             setState(() {
               _userName = data['fullName'] ?? user.displayName ?? 'Unknown User';
+            _userBloodGroup = data['bloodGroup'] ?? 'Unknown';
+            _userMobileNumber = data['phoneNumber'] ?? user.phoneNumber ?? 'Unknown';
             });
           }
 
@@ -303,8 +311,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _initializeSosService() async {
     SosService.startSosService(
       phoneNumbers: _targetNumbers,
-      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
-      userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
+      message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: https://streetpartner.web.app/?session=${FirebaseAuth.instance.currentUser?.uid ?? "unknown"}',
+                        userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
     );
   }
 
@@ -312,7 +320,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     // Manually trigger the native foreground countdown
     SosService.triggerSosCountdown(
       phoneNumbers: _targetNumbers,
-      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
+      message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: https://streetpartner.web.app/?session=${FirebaseAuth.instance.currentUser?.uid ?? "unknown"}'
     );
   }
 
@@ -438,8 +446,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   onPressed: () {
                     SosService.triggerSosAlert(
                       phoneNumbers: _targetNumbers,
-                      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
-                      userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown'
+                      message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: https://streetpartner.web.app/?session=${FirebaseAuth.instance.currentUser?.uid ?? "unknown"}',
+                        userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown'
                     );
                     _onSosDispatched();
                   },
@@ -517,13 +525,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     
     // Add to secondary database
     final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-    final locationLink = _currentPosition != null ? 'https://www.google.com/maps?q=,' : 'Location unavailable';
-    AdminDatabaseService.reportEmergencyToAdmin(
-      userId: userId,
-      userName: _userName,
-      bloodGroup: _userBloodGroup,
-      liveLocationLink: locationLink,
-    );
+    final locationLink = 'https://streetpartner.web.app/?session=';
+      AdminDatabaseService.reportEmergencyToAdmin(
+        userId: userId,
+        userName: _userName,
+        bloodGroup: _userBloodGroup,
+        mobileNumber: _userMobileNumber,
+        liveLocationLink: locationLink,
+        lat: _currentPosition?.latitude,
+        lng: _currentPosition?.longitude,
+      );
 
     if (mounted) {
       setState(() {
