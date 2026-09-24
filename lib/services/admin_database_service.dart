@@ -55,7 +55,7 @@ class AdminDatabaseService {
       await firestore.collection('emergencies').doc(userId).update({
         'lat': lat,
         'lng': lng,
-        'liveLocationLink': 'https://streetpartner.web.app/?session=',
+        'liveLocationLink': 'https://streetpartner.web.app/?session=$userId',
       });
       debugPrint('Successfully updated emergency location in admin db');
     } catch (e) {

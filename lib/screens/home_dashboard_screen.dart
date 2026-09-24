@@ -525,7 +525,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     
     // Add to secondary database
     final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-    final locationLink = 'https://streetpartner.web.app/?session=';
+    final locationLink = 'https://streetpartner.web.app/?session=$userId';
       AdminDatabaseService.reportEmergencyToAdmin(
         userId: userId,
         userName: _userName,

@@ -252,8 +252,7 @@ class SosForegroundService : Service(), SensorEventListener {
     }
 
     private fun updateNotification(secondsLeft: Int, isDeviation: Boolean = false) {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, buildNotification(secondsLeft, isDeviation))
+        startForeground(NOTIFICATION_ID, buildNotification(secondsLeft, isDeviation))
     }
 
     private fun startSosCountdown() {
@@ -366,7 +365,7 @@ class SosForegroundService : Service(), SensorEventListener {
         startLiveLocationLoop()
 
         // Provide web link for live location tracking
-        val fullMessage = "$sosMessage Live Location: https://streetpartner.web.app/?session=$userId"
+        val fullMessage = sosMessage
 
         // SMS
         for (number in phoneNumbers) {
@@ -550,12 +549,9 @@ class SosForegroundService : Service(), SensorEventListener {
     private fun sendSmsToContact(phoneNumber: String, message: String) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) {
             @Suppress("DEPRECATION")
-            val smsManager: SmsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                getSystemService(SmsManager::class.java)
-            } else {
-                SmsManager.getDefault()
-            }
-            smsManager.sendTextMessage(phoneNumber, null, message, null, null)
+            val smsManager: SmsManager = SmsManager.getDefault()
+            val parts = smsManager.divideMessage(message)
+            smsManager.sendMultipartTextMessage(phoneNumber, null, parts, null, null)
         } else {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse("sms:$phoneNumber")
