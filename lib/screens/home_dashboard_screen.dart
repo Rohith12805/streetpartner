@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,7 +14,7 @@ import '../services/sos_service.dart';
 import '../services/admin_database_service.dart';
 import '../services/emergency_services_service.dart';
 
-/// Home Dashboard — Figma node 1:149
+/// Home Dashboard â€” Figma node 1:149
 /// AppBar with logo + profile avatar, large SOS button centered, 2x2 feature grid
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -337,15 +337,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _modalSetState = setModalState;
 
             return AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
+              backgroundColor: AppTheme.background,
+              surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: AppTheme.sosRed, width: 2),
               ),
               title: Row(
                 children: [
                   const Icon(
-                    Icons.volume_up_rounded,
+                    Icons.warning_rounded,
                     color: AppTheme.sosRed,
                     size: 28,
                   ),
@@ -354,9 +354,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     child: Text(
                       isRouteDeviation ? 'ROUTE DEVIATION' : 'EMERGENCY SOS',
                       style: GoogleFonts.inter(
-                        color: Colors.white,
+                        color: AppTheme.onBackground,
                         fontWeight: FontWeight.bold,
-                        fontSize: 17,
+                        fontSize: 18,
                       ),
                     ),
                   ),
@@ -370,38 +370,39 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         ? 'You have deviated from your safe route!' 
                         : 'Emergency alarm sounding.',
                     style: GoogleFonts.inter(
-                      color: Colors.white70,
-                      fontSize: 13,
+                      color: AppTheme.onSurfaceMid,
+                      fontSize: 14,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   Container(
-                    width: 80,
-                    height: 80,
-                    decoration: const BoxDecoration(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppTheme.sosRed,
+                      color: AppTheme.sosRedContainer,
+                      border: Border.all(color: AppTheme.sosRed, width: 3),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       '$_secondsLeft',
                       style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 38,
+                        color: AppTheme.sosRed,
+                        fontSize: 42,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   Text(
                     isRouteDeviation
                         ? 'Tap REROUTE to update your path, or SOS will dispatch in 20s.'
-                        : 'Tap STOP SOS within 10s to stop siren, calls, and SMS messages.',
+                        : 'Tap CANCEL within 10s to stop siren and prevent SMS alerts.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
-                      color: Colors.white70,
-                      fontSize: 12,
+                      color: AppTheme.onSurfaceMid,
+                      fontSize: 13,
                       height: 1.4,
                     ),
                   ),
@@ -417,7 +418,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     child: Text(
                       'REROUTE',
                       style: GoogleFonts.inter(
-                        color: Colors.white,
+                        color: AppTheme.primary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -429,30 +430,30 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       SosService.stopMonitoring();
                     },
                     child: Text(
-                      'STOP SOS',
+                      'CANCEL',
                       style: GoogleFonts.inter(
-                        color: Colors.white,
+                        color: AppTheme.onSurfaceMid,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+                FilledButton(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.sosRed,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   onPressed: () {
                     SosService.triggerSosAlert(
                       phoneNumbers: _targetNumbers,
                       message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: https://streetpartner.web.app/?session=${FirebaseAuth.instance.currentUser?.uid ?? "unknown"}',
-                        userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown'
+                      userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown'
                     );
                     _onSosDispatched();
                   },
                   child: Text(
-                    'SEND NOW',
+                    isRouteDeviation ? 'DISPATCH NOW' : 'SEND NOW',
                     style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -548,7 +549,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '🚨 Emergency dispatched! Live location active.',
+                  'ðŸš¨ Emergency dispatched! Live location active.',
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
@@ -588,24 +589,33 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: _buildAppBar(context),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.pushNamed(context, '/ai-assistant');
+        },
+        backgroundColor: const Color(0xFF8B5CF6),
+        elevation: 6,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 28),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           children: [
             if (_isLiveLocationActive) _buildLiveLocationBanner(),
 
-            // ── Live Location & Geofencing Card ────────────────────────
+            // â”€â”€ Live Location & Geofencing Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _buildLiveLocationCard(context),
 
-            // ── SOS Button Section ──────────────────────────────────────
+            // â”€â”€ SOS Button Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _buildSosSection(context),
 
-            // ── Background Protection Toggle ────────────────────────────
+            // â”€â”€ Background Protection Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _buildProtectionToggle(),
 
             const SizedBox(height: 24),
 
-            // ── Quick Features Grid ─────────────────────────────────────
+            // â”€â”€ Quick Features Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _buildFeatureGrid(context),
 
             const SizedBox(height: 24),
@@ -911,7 +921,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Tap to launch 3s countdown\nalerts trusted contacts & local authorities.',
+              'Press to trigger a 10-second emergency countdown.\nAlerts trusted contacts & sounds a siren.',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: AppTheme.onSurfaceMid,
@@ -997,7 +1007,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         title: 'Fake Call',
         description: 'Schedule a simulated\nincoming call.',
         route: '/fake-call',
-      ),
+        ),
 _FeatureData(
         icon: Icons.emergency_rounded,
         iconBg: AppTheme.sosRedContainer,
@@ -1024,25 +1034,69 @@ _FeatureData(
               ),
             ),
           ),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.80,
-            children: features
-                .map(
-                  (f) => FeatureCard(
-                    icon: f.icon,
-                    iconBgColor: f.iconBg,
-                    iconColor: f.iconColor,
-                    title: f.title,
-                    description: f.description,
-                    onTap: () => Navigator.pushNamed(context, f.route),
+          Column(
+            children: features.map((f) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pushNamed(context, f.route);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: f.iconBg,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(f.icon, color: f.iconColor, size: 26),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                f.title,
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.onBackground,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                f.description.replaceAll('\n', ' '),
+
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppTheme.onSurfaceMid,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.chevron_right_rounded, color: Colors.grey[400]),
+                      ],
+                    ),
                   ),
-                )
-                .toList(),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -1067,3 +1121,6 @@ class _FeatureData {
     required this.route,
   });
 }
+
+
+
