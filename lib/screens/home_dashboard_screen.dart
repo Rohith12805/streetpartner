@@ -27,6 +27,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _isModalOpen = false;
   int _secondsLeft = 10;
   bool _isLiveLocationActive = false;
+  bool _manualAlertTriggered = false;
   bool _isBackgroundProtectionEnabled = false;
 
   String? _currentPlaceName;
@@ -67,12 +68,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       if (tick > 0) {
         _secondsLeft = tick;
         if (!_isModalOpen) {
-          SosService.playSiren();
+          if (!_manualAlertTriggered) { SosService.playSiren(); }
           _showSosCountdownDialog(isRouteDeviation);
         } else {
           _modalSetState?.call(() {});
         }
       } else if (tick == 0) {
+        _manualAlertTriggered = false;
         // Countdown finished, alert is dispatching
         SosService.stopSiren();
         if (_isModalOpen) {
@@ -81,6 +83,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         }
         _onSosDispatched();
       } else if (tick == -1) {
+        _manualAlertTriggered = false;
         // Countdown cancelled
         SosService.stopSiren();
         if (_isModalOpen) {
@@ -317,6 +320,31 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   void _onSosPressed() {
+    if (_isLiveLocationActive) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Cancel Emergency?'),
+          content: const Text('Are you sure you want to stop sharing your live location and cancel the SOS alert?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _stopLiveLocation();
+              },
+              child: const Text('Stop Sharing', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    
+    _manualAlertTriggered = true;
     // Manually trigger the native foreground countdown
     SosService.triggerSosCountdown(
       phoneNumbers: _targetNumbers,
@@ -566,6 +594,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   void _stopLiveLocation() {
+
+    _manualAlertTriggered = false;
     SosService.stopLiveLocation();
     
     // Clear from secondary database
@@ -862,42 +892,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               fontSize: 14,
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.sosRed,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Stop Live Location?'),
-                    content: const Text('Are you sure you are safe and want to stop sharing your location?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _stopLiveLocation();
-                        },
-                        child: const Text('Stop Sharing', style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              child: const Text('I am Safe - Stop Sharing'),
-            ),
-          ),
+
         ],
       ),
     );
@@ -912,7 +907,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           const SizedBox(height: 16),
           // SOS Button with pulse animation and active/loading state
           SosButton(
-            isActive: false,
+            isActive: _isLiveLocationActive,
             isLoading: false,
             onPressed: _onSosPressed,
           ),
@@ -921,7 +916,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Press to trigger a 10-second emergency countdown.\nAlerts trusted contacts & sounds a siren.',
+              _isLiveLocationActive 
+                ? '🚨 SOS ALERT ACTIVE\nPress again to cancel or stop sharing location.' 
+                : 'Press to trigger a 10-second emergency countdown.\nAlerts trusted contacts & sounds a siren.',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: AppTheme.onSurfaceMid,
@@ -1121,6 +1118,10 @@ class _FeatureData {
     required this.route,
   });
 }
+
+
+
+
 
 
 

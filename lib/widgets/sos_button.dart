@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
-/// Large circular SOS button with animated pulse rings — matches Figma node 1:154
+/// Large circular SOS button with animated pulse rings â€” matches Figma node 1:154
 class SosButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool isActive;
@@ -59,7 +59,7 @@ class _SosButtonState extends State<SosButton>
   @override
   Widget build(BuildContext context) {
     final activeColor = widget.isActive
-        ? const Color(0xFFDC2626)
+        ? const Color(0xFF16A34A) // Green color for safe
         : AppTheme.sosRed;
 
     return GestureDetector(
@@ -125,19 +125,19 @@ class _SosButtonState extends State<SosButton>
                       children: [
                         Icon(
                           widget.isActive
-                              ? Icons.emergency_rounded
+                              ? Icons.check_circle_rounded
                               : Icons.warning_amber_rounded,
                           color: Colors.white,
                           size: 40,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          widget.isActive ? 'ACTIVE' : 'SOS',
+                          widget.isActive ? 'I AM SAFE' : 'SOS',
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: widget.isActive ? 1.5 : 2.5,
+                            letterSpacing: widget.isActive ? 1.0 : 2.5,
                           ),
                         ),
                       ],
@@ -149,3 +149,4 @@ class _SosButtonState extends State<SosButton>
     );
   }
 }
+
