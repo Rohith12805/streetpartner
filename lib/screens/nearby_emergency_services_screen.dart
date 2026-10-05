@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 import '../services/emergency_services_service.dart' as svc;
 
 /// Nearby Emergency Services Screen — Instant-Load Background Prefetched Real-Time Search
@@ -571,8 +572,7 @@ class _NearbyEmergencyServicesScreenState
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                'Nearby Emergency Services',
+              child: Text(AppLocalizations.of(context)?.nearbyEmergencyServices ?? 'Nearby Emergency Services',
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -664,13 +664,13 @@ class _NearbyEmergencyServicesScreenState
           // 4. Main Service List
           Expanded(
             child: _isLoading
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: AppTheme.primary),
-                        SizedBox(height: 12),
-                        Text('Finding top nearest emergency stations...'),
+                        const CircularProgressIndicator(color: AppTheme.primary),
+                        const SizedBox(height: 12),
+                        Text(AppLocalizations.of(context)?.findingTopNearestEmergencyStat ?? 'Finding top nearest emergency stations...'),
                       ],
                     ),
                   )
@@ -702,8 +702,7 @@ class _NearbyEmergencyServicesScreenState
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 side: const BorderSide(color: AppTheme.divider),
               ),
-              child: Text(
-                'BACK TO DASHBOARD',
+              child: Text(AppLocalizations.of(context)?.backToDashboard ?? 'BACK TO DASHBOARD',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -766,7 +765,7 @@ class _NearbyEmergencyServicesScreenState
               decoration: BoxDecoration(
                 color: AppTheme.primary,
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
               ),
               child: Row(
                 children: [
@@ -958,7 +957,7 @@ class _NearbyEmergencyServicesScreenState
                     child: FilledButton.icon(
                       onPressed: _closeNavigation,
                       icon: const Icon(Icons.arrow_back_rounded),
-                      label: const Text('EXIT IN-APP NAVIGATION'),
+                      label: Text(AppLocalizations.of(context)?.exitInappNavigation ?? 'EXIT IN-APP NAVIGATION'),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppTheme.primary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1105,8 +1104,7 @@ class _NearbyEmergencyServicesScreenState
                       children: [
                         const Icon(Icons.navigation_rounded, size: 13, color: AppTheme.primary),
                         const SizedBox(width: 4),
-                        Text(
-                          'IN-APP NAV',
+                        Text(AppLocalizations.of(context)?.inappNav ?? 'IN-APP NAV',
                           style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary),
                         ),
                       ],

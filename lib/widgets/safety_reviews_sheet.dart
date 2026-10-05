@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../models/area_safety_model.dart';
 import '../services/area_safety_service.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class SafetyReviewsSheet extends StatelessWidget {
@@ -32,8 +33,7 @@ class SafetyReviewsSheet extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    'Area Reviews',
+                  child: Text(AppLocalizations.of(context)?.areaReviews ?? 'Area Reviews',
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -78,8 +78,7 @@ class SafetyReviewsSheet extends StatelessWidget {
                       children: [
                         const Icon(Icons.rate_review_outlined, size: 64, color: AppTheme.divider),
                         const SizedBox(height: 16),
-                        Text(
-                          'No reviews yet',
+                        Text(AppLocalizations.of(context)?.noReviewsYet ?? 'No reviews yet',
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             color: AppTheme.onSurfaceMid,

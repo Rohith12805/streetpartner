@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:audio_session/audio_session.dart' as session;
 import '../models/fake_call.dart';
 import '../services/fake_call_service.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class FakeCallConversationScreen extends StatefulWidget {
   final FakeCall fakeCall;
@@ -25,10 +28,62 @@ class _FakeCallConversationScreenState
   bool _isMuted = false;
   bool _isSpeakerOn = false;
 
+  AudioPlayer _audioPlayer = AudioPlayer();
+
   @override
   void initState() {
     super.initState();
     _startCallTimer();
+    _initCallAudio();
+  }
+
+  Future<void> _initCallAudio() async {
+    await _setAudioRouting(speakerOn: false);
+    _playVoiceClip();
+  }
+
+  Future<void> _setAudioRouting({required bool speakerOn}) async {
+    final s = await session.AudioSession.instance;
+    await s.configure(session.AudioSessionConfiguration(
+      avAudioSessionCategory: session.AVAudioSessionCategory.playAndRecord,
+      avAudioSessionCategoryOptions: speakerOn 
+          ? session.AVAudioSessionCategoryOptions.defaultToSpeaker 
+          : session.AVAudioSessionCategoryOptions.none,
+      avAudioSessionMode: session.AVAudioSessionMode.voiceChat,
+      avAudioSessionRouteSharingPolicy: session.AVAudioSessionRouteSharingPolicy.defaultPolicy,
+      avAudioSessionSetActiveOptions: session.AVAudioSessionSetActiveOptions.none,
+      androidAudioAttributes: session.AndroidAudioAttributes(
+        contentType: speakerOn ? session.AndroidAudioContentType.music : session.AndroidAudioContentType.speech,
+        flags: session.AndroidAudioFlags.none,
+        usage: speakerOn ? session.AndroidAudioUsage.media : session.AndroidAudioUsage.voiceCommunication,
+      ),
+      androidAudioFocusGainType: session.AndroidAudioFocusGainType.gain,
+      androidWillPauseWhenDucked: true,
+    ));
+
+    final ctx = AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: speakerOn,
+        stayAwake: true,
+        contentType: speakerOn ? AndroidContentType.music : AndroidContentType.speech,
+        usageType: speakerOn ? AndroidUsageType.media : AndroidUsageType.voiceCommunication,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playAndRecord,
+        options: speakerOn ? const {AVAudioSessionOptions.defaultToSpeaker} : const {},
+      ),
+    );
+    await AudioPlayer.global.setAudioContext(ctx);
+    await _audioPlayer.setAudioContext(ctx);
+  }
+
+  Future<void> _playVoiceClip() async {
+    final lang = widget.fakeCall.voiceLanguage;
+    final path = 'audio/fake_call_$lang.mp3';
+    // Play on loop
+    _audioPlayer.setReleaseMode(ReleaseMode.loop);
+    await _audioPlayer.play(AssetSource(path));
   }
 
   void _startCallTimer() {
@@ -49,6 +104,7 @@ class _FakeCallConversationScreenState
 
   void _endCall() async {
     _timer.cancel();
+    _audioPlayer.stop();
     FakeCallService.instance.markCallEnded();
     await FakeCallService.instance.updateCallStatus(
       widget.fakeCall.id,
@@ -61,6 +117,27 @@ class _FakeCallConversationScreenState
   @override
   void dispose() {
     _timer.cancel();
+    _audioPlayer.dispose();
+    
+    // Reset global AudioSession back to music/media defaults
+    session.AudioSession.instance.then((s) {
+      s.configure(const session.AudioSessionConfiguration.music());
+    });
+
+    // Reset global AudioContext back to standard media player defaults
+    AudioPlayer.global.setAudioContext(AudioContext(
+      android: const AudioContextAndroid(
+        isSpeakerphoneOn: true,
+        stayAwake: true,
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.media,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+        options: const {},
+      ),
+    ));
     super.dispose();
   }
 
@@ -156,8 +233,7 @@ class _FakeCallConversationScreenState
                 const SizedBox(height: 12),
               ],
 
-              Text(
-                'Simulated Ongoing Call',
+              Text(AppLocalizations.of(context)?.simulatedOngoingCall ?? 'Simulated Ongoing Call',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xFF64748B),
@@ -190,8 +266,24 @@ class _FakeCallConversationScreenState
                           : Icons.volume_down_rounded,
                       label: 'Speaker',
                       isActive: _isSpeakerOn,
-                      onTap: () =>
-                          setState(() => _isSpeakerOn = !_isSpeakerOn),
+                      onTap: () async {
+                        final pos = await _audioPlayer.getCurrentPosition();
+                        await _audioPlayer.stop();
+                        await _audioPlayer.dispose(); // Destroy the old player completely
+                        
+                        setState(() {
+                          _isSpeakerOn = !_isSpeakerOn;
+                          _audioPlayer = AudioPlayer(); // Create a brand new fresh player
+                        });
+                        
+                        await _setAudioRouting(speakerOn: _isSpeakerOn);
+                        
+                        // Restart playback on the new player instance
+                        await _playVoiceClip();
+                        if (pos != null) {
+                          await _audioPlayer.seek(pos);
+                        }
+                      },
                     ),
                   ],
                 ),

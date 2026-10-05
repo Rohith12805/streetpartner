@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class FencingHubScreen extends StatelessWidget {
   const FencingHubScreen({super.key});
@@ -10,8 +11,7 @@ class FencingHubScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(
-          'Fencing',
+        title: Text(AppLocalizations.of(context)?.fencing ?? 'Fencing',
           style: GoogleFonts.inter(
             color: AppTheme.onBackground,
             fontWeight: FontWeight.w600,
@@ -27,8 +27,7 @@ class FencingHubScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 16),
-            Text(
-              'Select the type of safety perimeter you want to create.',
+            Text(AppLocalizations.of(context)?.selectTheTypeOfSafetyPerimeter ?? 'Select the type of safety perimeter you want to create.',
               style: GoogleFonts.inter(
                 fontSize: 15,
                 color: AppTheme.onSurfaceMid,
@@ -39,8 +38,8 @@ class FencingHubScreen extends StatelessWidget {
             
             _buildFencingCard(
               context: context,
-              title: 'Geo Fencing',
-              description: 'Set a circular safe zone around a specific location. Triggers SOS if you leave the area.',
+              title: AppLocalizations.of(context)?.geoFencingTitle ?? 'Geo Fencing',
+              description: AppLocalizations.of(context)?.geoFencingDesc ?? 'Set a circular safe zone around a specific location. Triggers SOS if you leave the area.',
               icon: Icons.my_location_rounded,
               color: Colors.blue,
               route: '/geofencing',
@@ -49,8 +48,8 @@ class FencingHubScreen extends StatelessWidget {
             
             _buildFencingCard(
               context: context,
-              title: 'Route Fencing',
-              description: 'Set a safe travel corridor to a destination. Triggers SOS if you deviate from the path.',
+              title: AppLocalizations.of(context)?.routeFencingTitle ?? 'Route Fencing',
+              description: AppLocalizations.of(context)?.routeFencingDesc ?? 'Set a safe travel corridor to a destination. Triggers SOS if you deviate from the path.',
               icon: Icons.route_rounded,
               color: Colors.green,
               route: '/route-fencing',

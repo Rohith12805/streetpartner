@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import '../theme/app_theme.dart';
 import '../services/area_safety_service.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class SafetyRatingSheet extends StatefulWidget {
   final LatLng location;
@@ -47,7 +48,7 @@ class _SafetyRatingSheetState extends State<SafetyRatingSheet> {
   Future<void> _submitRating() async {
     if (_rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a star rating.')),
+        SnackBar(content: Text(AppLocalizations.of(context)?.pleaseSelectAStarRating ?? 'Please select a star rating.')),
       );
       return;
     }
@@ -66,12 +67,12 @@ class _SafetyRatingSheetState extends State<SafetyRatingSheet> {
         await showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Success'),
-            content: const Text('Safety rating submitted successfully!'),
+            title: Text(AppLocalizations.of(context)?.success ?? 'Success'),
+            content: Text(AppLocalizations.of(context)?.safetyRatingSubmittedSuccessfu ?? 'Safety rating submitted successfully!'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
+                child: Text(AppLocalizations.of(context)?.ok ?? 'OK'),
               ),
             ],
           ),
@@ -118,8 +119,7 @@ class _SafetyRatingSheetState extends State<SafetyRatingSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    'Rate Area Safety',
+                  child: Text(AppLocalizations.of(context)?.rateAreaSafety ?? 'Rate Area Safety',
                     style: GoogleFonts.inter(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -165,8 +165,7 @@ class _SafetyRatingSheetState extends State<SafetyRatingSheet> {
             ),
             const SizedBox(height: 24),
 
-            Text(
-              'Select any issues present (Optional)',
+            Text(AppLocalizations.of(context)?.selectAnyIssuesPresentOptional ?? 'Select any issues present (Optional)',
               style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -208,8 +207,7 @@ class _SafetyRatingSheetState extends State<SafetyRatingSheet> {
             ),
             const SizedBox(height: 24),
 
-            Text(
-              'Describe your experience (Optional)',
+            Text(AppLocalizations.of(context)?.describeYourExperienceOptional ?? 'Describe your experience (Optional)',
               style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -255,8 +253,7 @@ class _SafetyRatingSheetState extends State<SafetyRatingSheet> {
                         width: 24,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
-                    : Text(
-                        'Submit Review',
+                    : Text(AppLocalizations.of(context)?.submitReview ?? 'Submit Review',
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

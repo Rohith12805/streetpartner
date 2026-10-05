@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
 import '../services/sos_service.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class GeofencingScreen extends StatefulWidget {
   const GeofencingScreen({super.key});
@@ -144,8 +145,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     try {
       _mapController.rotate(0.0);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Map oriented North 🧭'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)?.mapOrientedNorth ?? 'Map oriented North 🧭'),
           duration: Duration(seconds: 1),
         ),
       );
@@ -167,8 +168,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(
-          'Geo Fencing Safety',
+        title: Text(AppLocalizations.of(context)?.geoFencingSafety ?? 'Geo Fencing Safety',
           style: GoogleFonts.inter(
             color: AppTheme.onBackground,
             fontWeight: FontWeight.w600,
@@ -275,7 +275,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                 color: isOutside ? Colors.red : AppTheme.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 3),
-                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
                               ),
                               child: const Icon(Icons.shield_rounded, color: Colors.white, size: 22),
                             ),
@@ -383,8 +383,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Select Guard Radius:',
+                      Text(AppLocalizations.of(context)?.selectGuardRadius ?? 'Select Guard Radius:',
                         style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
                       ),
                       Container(
@@ -456,7 +455,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               padding: EdgeInsets.zero,
                             ),
-                            child: Text('APPLY', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                            child: Text(AppLocalizations.of(context)?.apply ?? 'APPLY', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
                           ),
                         ),
                       ],
@@ -479,7 +478,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                               });
                             },
                             icon: const Icon(Icons.stop_rounded),
-                            label: const Text('DISABLE GUARD'),
+                            label: Text(AppLocalizations.of(context)?.disableGuard ?? 'DISABLE GUARD'),
                             style: FilledButton.styleFrom(
                               backgroundColor: Colors.grey.shade900,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -497,7 +496,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                               _fitMapToRadius(_radiusInMeters, target: _fixedCenter);
                             },
                             icon: const Icon(Icons.shield_rounded),
-                            label: const Text('ENABLE GEOFENCE GUARD'),
+                            label: Text(AppLocalizations.of(context)?.enableGeofenceGuard ?? 'ENABLE GEOFENCE GUARD'),
                             style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.primary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

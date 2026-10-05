@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class LiveLocationScreen extends StatefulWidget {
   const LiveLocationScreen({super.key});
@@ -154,8 +155,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       backgroundColor: AppTheme.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(
-          'My Location',
+        title: Text(AppLocalizations.of(context)?.myLocation ?? 'My Location',
           style: GoogleFonts.inter(
             color: AppTheme.onBackground,
             fontWeight: FontWeight.w600,
@@ -208,7 +208,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                               color: AppTheme.primary,
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: const [
+                              boxShadow: [
                                 BoxShadow(
                                   color: Colors.black26,
                                   blurRadius: 6,
@@ -264,8 +264,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              'LIVE',
+                            Text(AppLocalizations.of(context)?.live ?? 'LIVE',
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,

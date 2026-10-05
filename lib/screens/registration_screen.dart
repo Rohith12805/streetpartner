@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 /// Registration Screen — Figma node 1:43
 /// Fields: First Name, Last Name, Phone Number, Blood Group (dropdown), Emergency Contacts (dynamic list)
@@ -84,7 +85,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from Gallery'),
+                title: Text(AppLocalizations.of(context)?.chooseFromGallery ?? 'Choose from Gallery'),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.gallery);
@@ -92,7 +93,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.camera_alt),
-                title: const Text('Take a Photo'),
+                title: Text(AppLocalizations.of(context)?.takeAPhoto ?? 'Take a Photo'),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.camera);
@@ -130,8 +131,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         phone.isEmpty ||
         _selectedBloodGroup == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all mandatory fields.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)?.pleaseFillAllMandatoryFields ?? 'Please fill all mandatory fields.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -144,8 +145,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         .toList();
     if (validContacts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please provide at least one emergency contact.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)?.pleaseProvideAtLeastOneEmergen ?? 'Please provide at least one emergency contact.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -300,8 +301,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        Text(
-          'Create your profile',
+        Text(AppLocalizations.of(context)?.createYourProfile ?? 'Create your profile',
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -309,8 +309,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          'Set up your safety profile so we can assist you better in an emergency.',
+        Text(AppLocalizations.of(context)?.setUpYourSafetyProfileSoWeCanA ?? 'Set up your safety profile so we can assist you better in an emergency.',
           style: GoogleFonts.inter(fontSize: 16, color: AppTheme.onSurfaceMid),
         ),
       ],
@@ -344,8 +343,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         const SizedBox(height: 16),
 
         // ── Phone Number with prefix (Figma node 1:73)
-        Text(
-          'Phone Number',
+        Text(AppLocalizations.of(context)?.phoneNumber ?? 'Phone Number',
           style: GoogleFonts.inter(fontSize: 16, color: AppTheme.onSurfaceMid),
         ),
         const SizedBox(height: 8),
@@ -362,8 +360,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    Text(
-                      '+91',
+                    Text(AppLocalizations.of(context)?.text91 ?? '+91',
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -410,8 +407,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         const SizedBox(height: 16),
 
         // ── Blood Group dropdown (Figma node 1:87)
-        Text(
-          'Blood Group',
+        Text(AppLocalizations.of(context)?.bloodGroup ?? 'Blood Group',
           style: GoogleFonts.inter(fontSize: 16, color: AppTheme.onSurfaceMid),
         ),
         const SizedBox(height: 8),
@@ -427,8 +423,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             child: DropdownButton<String>(
               isExpanded: true,
               value: _selectedBloodGroup,
-              hint: Text(
-                'Select Blood Group',
+              hint: Text(AppLocalizations.of(context)?.selectBloodGroup ?? 'Select Blood Group',
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   color: AppTheme.onBackground,
@@ -457,8 +452,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         const SizedBox(height: 16),
 
         // ── Emergency Contacts (Figma node 1:97) ──────────────────────────
-        Text(
-          'Emergency Contact',
+        Text(AppLocalizations.of(context)?.emergencyContact ?? 'Emergency Contact',
           style: GoogleFonts.inter(fontSize: 16, color: AppTheme.onSurfaceMid),
         ),
         const SizedBox(height: 8),
@@ -561,7 +555,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     strokeWidth: 2,
                   ),
                 )
-              : const Text('Complete Profile'),
+              : Text(AppLocalizations.of(context)?.completeProfile ?? 'Complete Profile'),
         ),
       ],
     );

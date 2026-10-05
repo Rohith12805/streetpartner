@@ -29,6 +29,10 @@ dependencies:
   timeago: ^3.7.1
   google_generative_ai: ^0.4.7
   url_launcher: ^6.3.2
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  audio_session: ^0.2.4
 
 
 dev_dependencies:
@@ -44,8 +48,10 @@ flutter_launcher_icons:
   min_sdk_android: 21
 
 flutter:
+  generate: true
   uses-material-design: true
   assets:
-    - assets/audio/siren.mp3
+    - assets/audio/
     - assets/icon/
+    - assets/images/
 

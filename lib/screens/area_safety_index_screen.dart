@@ -9,6 +9,7 @@ import '../services/area_safety_service.dart';
 import '../models/area_safety_model.dart';
 import '../widgets/safety_rating_sheet.dart';
 import '../widgets/safety_reviews_sheet.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class AreaSafetyIndexScreen extends StatefulWidget {
   const AreaSafetyIndexScreen({super.key});
@@ -123,7 +124,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
         _updateActiveCell(location);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location not found.')),
+          SnackBar(content: Text(AppLocalizations.of(context)?.locationNotFound ?? 'Location not found.')),
         );
       }
     }
@@ -209,8 +210,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(
-          'Area Safety Index',
+        title: Text(AppLocalizations.of(context)?.areaSafetyIndex ?? 'Area Safety Index',
           style: GoogleFonts.inter(
             color: AppTheme.onBackground,
             fontWeight: FontWeight.w600,
@@ -260,7 +260,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
                                 color: Colors.blue,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 3),
-                                boxShadow: const [
+                                boxShadow: [
                                   BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
                                 ],
                               ),
@@ -429,14 +429,12 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
           if (!hasData)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Text(
-                'No community ratings yet for this area. Be the first to rate it and help others stay safe!',
+              child: Text(AppLocalizations.of(context)?.noCommunityRatingsYetForThisAr ?? 'No community ratings yet for this area. Be the first to rate it and help others stay safe!',
                 style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 14),
               ),
             )
           else ...[
-            Text(
-              'Top Reported Issues:',
+            Text(AppLocalizations.of(context)?.topReportedIssues ?? 'Top Reported Issues:',
               style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             const SizedBox(height: 8),
@@ -453,8 +451,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text(
-                    'Read Reviews',
+                  child: Text(AppLocalizations.of(context)?.readReviews ?? 'Read Reviews',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -468,8 +465,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text(
-                    'Rate This Area',
+                  child: Text(AppLocalizations.of(context)?.rateThisArea ?? 'Rate This Area',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -483,7 +479,7 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
 
   Widget _buildTopIssues() {
     if (_activeCellData == null || _activeCellData!.issueCounts.isEmpty) {
-      return Text('No specific issues reported.', style: GoogleFonts.inter(color: Colors.grey, fontSize: 13));
+      return Text(AppLocalizations.of(context)?.noSpecificIssuesReported ?? 'No specific issues reported.', style: GoogleFonts.inter(color: Colors.grey, fontSize: 13));
     }
 
     final total = _activeCellData!.totalRatings;

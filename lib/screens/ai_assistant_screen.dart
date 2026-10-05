@@ -6,6 +6,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/sheild_brand_text.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class AiAssistantScreen extends StatefulWidget {
   const AiAssistantScreen({Key? key}) : super(key: key);
@@ -175,7 +176,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('All AI networks failed. Please check internet connection.')),
+          SnackBar(content: Text(AppLocalizations.of(context)?.allAiNetworksFailedPleaseCheck ?? 'All AI networks failed. Please check internet connection.')),
         );
       }
     }
@@ -233,8 +234,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 Icon(Icons.warning_amber_rounded, color: Colors.orange[900], size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'I am an AI, not a doctor. Call emergency services immediately for severe medical emergencies.',
+                  child: Text(AppLocalizations.of(context)?.iAmAnAiNotADoctorCallEmergency ?? 'I am an AI, not a doctor. Call emergency services immediately for severe medical emergencies.',
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: Colors.orange[900],
@@ -324,7 +324,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('AI networks racing...', style: GoogleFonts.inter(color: Colors.grey)),
+                  Text(AppLocalizations.of(context)?.aiNetworksRacing ?? 'AI networks racing...', style: GoogleFonts.inter(color: Colors.grey)),
                 ],
               ),
             ),

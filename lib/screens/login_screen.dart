@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/sheild_brand_text.dart';
 import '../services/sos_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 /// Clean Authentication Screen with Google Sign-In only
 class LoginScreen extends StatefulWidget {
@@ -150,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
                 color: Color(0x15000000),
                 blurRadius: 14,
@@ -172,8 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
           fontWeight: FontWeight.bold,
         ),
         const SizedBox(height: 4),
-        Text(
-          'Proactive Protection & SOS Emergency Network',
+        Text(AppLocalizations.of(context)?.proactiveProtectionSosEmergenc ?? 'Proactive Protection & SOS Emergency Network',
           style: GoogleFonts.inter(fontSize: 13, color: AppTheme.onSurfaceMid),
         ),
       ],
@@ -197,8 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'Welcome',
+          Text(AppLocalizations.of(context)?.welcome ?? 'Welcome',
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -206,8 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Sign in to access your security dashboard',
+          Text(AppLocalizations.of(context)?.signInToAccessYourSecurityDash ?? 'Sign in to access your security dashboard',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 13,
@@ -223,8 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: const Icon(
                     Icons.login,
                   ), // Or a Google Logo if available
-                  label: Text(
-                    'Continue with Google',
+                  label: Text(AppLocalizations.of(context)?.continueWithGoogle ?? 'Continue with Google',
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

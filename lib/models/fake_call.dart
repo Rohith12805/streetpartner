@@ -20,6 +20,7 @@ class FakeCall {
   final String? phoneNumber;
   final DateTime scheduledDateTime;
   final FakeCallStatus status;
+  final String voiceLanguage;
 
   const FakeCall({
     required this.id,
@@ -27,6 +28,7 @@ class FakeCall {
     this.phoneNumber,
     required this.scheduledDateTime,
     this.status = FakeCallStatus.scheduled,
+    this.voiceLanguage = 'en',
   });
 
   bool get isUpcoming =>
@@ -70,6 +72,7 @@ class FakeCall {
       'phoneNumber': phoneNumber,
       'scheduledDateTime': scheduledDateTime.toIso8601String(),
       'status': status.toValue(),
+      'voiceLanguage': voiceLanguage,
     };
   }
 
@@ -80,6 +83,7 @@ class FakeCall {
       phoneNumber: json['phoneNumber'] as String?,
       scheduledDateTime: DateTime.parse(json['scheduledDateTime'] as String),
       status: FakeCallStatus.fromValue(json['status'] as String?),
+      voiceLanguage: json['voiceLanguage'] as String? ?? 'en',
     );
   }
 
@@ -89,6 +93,7 @@ class FakeCall {
     String? phoneNumber,
     DateTime? scheduledDateTime,
     FakeCallStatus? status,
+    String? voiceLanguage,
   }) {
     return FakeCall(
       id: id ?? this.id,
@@ -96,6 +101,7 @@ class FakeCall {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       scheduledDateTime: scheduledDateTime ?? this.scheduledDateTime,
       status: status ?? this.status,
+      voiceLanguage: voiceLanguage ?? this.voiceLanguage,
     );
   }
 }

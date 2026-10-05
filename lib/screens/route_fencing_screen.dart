@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/sos_service.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class RouteFencingScreen extends StatefulWidget {
   const RouteFencingScreen({super.key});
@@ -160,7 +161,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to fetch route.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)?.failedToFetchRoute ?? 'Failed to fetch route.')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -205,7 +206,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
 
   Future<void> _startRouteGuard() async {
     if (_routePolyline.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a destination and calculate a route first.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)?.pleaseSelectADestinationAndCal ?? 'Please select a destination and calculate a route first.')));
       return;
     }
 
@@ -224,8 +225,8 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
       _isRouteActive = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Route Guard Active! Diverting 100m from this path will trigger SOS.'),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppLocalizations.of(context)?.routeGuardActiveDiverting100mF ?? 'Route Guard Active! Diverting 100m from this path will trigger SOS.'),
       backgroundColor: Colors.green,
     ));
 
@@ -267,8 +268,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(
-          'Route Fencing',
+        title: Text(AppLocalizations.of(context)?.routeFencing ?? 'Route Fencing',
           style: GoogleFonts.inter(
             color: AppTheme.onBackground,
             fontWeight: FontWeight.w600,
@@ -315,7 +315,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
                         color: Colors.blue,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 3),
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
+                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
                       ),
                     ),
                   ),
@@ -407,7 +407,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
                       child: FilledButton.icon(
                         onPressed: _stopRouteGuard,
                         icon: const Icon(Icons.stop_rounded),
-                        label: const Text('STOP FENCING'),
+                        label: Text(AppLocalizations.of(context)?.stopFencing ?? 'STOP FENCING'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.grey.shade800,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -423,7 +423,7 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
                           child: FilledButton.icon(
                             onPressed: _startRouteGuard,
                             icon: const Icon(Icons.shield_rounded),
-                            label: const Text('START ROUTE GUARD'),
+                            label: Text(AppLocalizations.of(context)?.startRouteGuard ?? 'START ROUTE GUARD'),
                             style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.primary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

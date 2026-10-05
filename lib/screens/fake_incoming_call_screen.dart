@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/fake_call.dart';
 import '../services/fake_call_service.dart';
 import 'fake_call_conversation_screen.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class FakeIncomingCallScreen extends StatefulWidget {
   final FakeCall fakeCall;
@@ -121,8 +122,7 @@ class _FakeIncomingCallScreenState extends State<FakeIncomingCallScreen>
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    'Simulated Incoming Call',
+                  Text(AppLocalizations.of(context)?.simulatedIncomingCall ?? 'Simulated Incoming Call',
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -198,8 +198,7 @@ class _FakeIncomingCallScreenState extends State<FakeIncomingCallScreen>
               ],
 
               // Incoming Call Status Text
-              Text(
-                'Incoming call...',
+              Text(AppLocalizations.of(context)?.incomingCall ?? 'Incoming call...',
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -244,8 +243,7 @@ class _FakeIncomingCallScreenState extends State<FakeIncomingCallScreen>
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          'Decline',
+                        Text(AppLocalizations.of(context)?.decline ?? 'Decline',
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -283,8 +281,7 @@ class _FakeIncomingCallScreenState extends State<FakeIncomingCallScreen>
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          'Accept',
+                        Text(AppLocalizations.of(context)?.accept ?? 'Accept',
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,

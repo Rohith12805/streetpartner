@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/sos_service.dart';
 import 'my_reviews_screen.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 /// Profile Management Screen — Figma node 1:253
 /// AppBar with back arrow, editable profile fields, emergency contacts, Update + Logout buttons
@@ -30,8 +31,8 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)?.profileUpdatedSuccessfully ?? 'Profile updated successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -59,7 +60,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Uploading picture...')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)?.uploadingPicture ?? 'Uploading picture...')));
       }
 
       await ref.putFile(file);
@@ -71,8 +72,8 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile picture updated!'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)?.profilePictureUpdated ?? 'Profile picture updated!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -93,7 +94,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return const Scaffold(body: Center(child: Text('Not authenticated')));
+      return Scaffold(body: Center(child: Text(AppLocalizations.of(context)?.notAuthenticated ?? 'Not authenticated')));
     }
 
     return Scaffold(
@@ -130,8 +131,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                'Profile Management',
+              child: Text(AppLocalizations.of(context)?.profileManagement ?? 'Profile Management',
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -167,15 +167,15 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const Center(
-              child: Text('Session expired. Please log in again.'),
+            return Center(
+              child: Text(AppLocalizations.of(context)?.sessionExpiredPleaseLogInAgain ?? 'Session expired. Please log in again.'),
             );
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Profile not found'));
+            return Center(child: Text(AppLocalizations.of(context)?.profileNotFound ?? 'Profile not found'));
           }
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -221,15 +221,13 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                           ),
                           child: const Icon(Icons.rate_review_outlined, color: AppTheme.primary),
                         ),
-                        title: Text(
-                          'My Safety Reviews',
+                        title: Text(AppLocalizations.of(context)?.mySafetyReviews ?? 'My Safety Reviews',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
                             color: AppTheme.onBackground,
                           ),
                         ),
-                        subtitle: Text(
-                          'View and delete your previous area ratings',
+                        subtitle: Text(AppLocalizations.of(context)?.viewAndDeleteYourPreviousAreaR ?? 'View and delete your previous area ratings',
                           style: GoogleFonts.inter(fontSize: 12, color: AppTheme.onSurfaceMid),
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
@@ -274,7 +272,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppTheme.divider,
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
                       color: Color(0x0D000000),
                       blurRadius: 4,
@@ -351,8 +349,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Verified User',
+                Text(AppLocalizations.of(context)?.verifiedUser ?? 'Verified User',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: AppTheme.onSurfaceLight,
@@ -377,8 +374,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 12),
-          child: Text(
-            'Personal Info',
+          child: Text(AppLocalizations.of(context)?.personalInfo ?? 'Personal Info',
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -515,8 +511,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Blood Group',
+                Text(AppLocalizations.of(context)?.bloodGroup ?? 'Blood Group',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: const Color(0xFFB6171E),
@@ -586,8 +581,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                 color: AppTheme.onBackground,
               ),
               const SizedBox(width: 8),
-              Text(
-                'Emergency Contacts',
+              Text(AppLocalizations.of(context)?.emergencyContacts ?? 'Emergency Contacts',
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -629,8 +623,8 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                   _updateField('emergencyContacts', updated);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Minimum 1 emergency contact is required.'),
+                    SnackBar(
+                      content: Text(AppLocalizations.of(context)?.minimum1EmergencyContactIsRequ ?? 'Minimum 1 emergency contact is required.'),
                     ),
                   );
                 }
@@ -646,7 +640,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Add Emergency Contact'),
+                  title: Text(AppLocalizations.of(context)?.addEmergencyContact ?? 'Add Emergency Contact'),
                   content: TextField(
                     controller: phoneCtrl,
                     keyboardType: TextInputType.phone,
@@ -657,7 +651,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancel'),
+                      child: Text(AppLocalizations.of(context)?.cancel1 ?? 'Cancel'),
                     ),
                     ElevatedButton(
                       onPressed: () {
@@ -668,7 +662,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                         }
                         Navigator.pop(ctx);
                       },
-                      child: const Text('Add'),
+                      child: Text(AppLocalizations.of(context)?.add ?? 'Add'),
                     ),
                   ],
                 ),
@@ -818,7 +812,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Emergency Contact'),
+        title: Text(AppLocalizations.of(context)?.editEmergencyContact ?? 'Edit Emergency Contact'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -832,7 +826,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)?.cancel1 ?? 'Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -844,7 +838,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Save'),
+            child: Text(AppLocalizations.of(context)?.save1 ?? 'Save'),
           ),
         ],
       ),
@@ -880,7 +874,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             }
           },
           icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('Log Out'),
+          label: Text(AppLocalizations.of(context)?.logOut ?? 'Log Out'),
           style: FilledButton.styleFrom(
             backgroundColor: AppTheme.cardBg,
             foregroundColor: AppTheme.onBackground,
@@ -917,11 +911,11 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)?.cancel1 ?? 'Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text),
-            child: const Text('Save'),
+            child: Text(AppLocalizations.of(context)?.save1 ?? 'Save'),
           ),
         ],
       ),

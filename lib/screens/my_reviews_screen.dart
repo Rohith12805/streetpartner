@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import '../models/area_safety_model.dart';
 import '../services/area_safety_service.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class MyReviewsScreen extends StatelessWidget {
@@ -16,8 +17,8 @@ class MyReviewsScreen extends StatelessWidget {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('My Reviews')),
-        body: const Center(child: Text('Not authenticated')),
+        appBar: AppBar(title: Text(AppLocalizations.of(context)?.myReviews ?? 'My Reviews')),
+        body: Center(child: Text(AppLocalizations.of(context)?.notAuthenticated ?? 'Not authenticated')),
       );
     }
 
@@ -30,8 +31,7 @@ class MyReviewsScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'My Safety Reviews',
+        title: Text(AppLocalizations.of(context)?.mySafetyReviews ?? 'My Safety Reviews',
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -56,13 +56,11 @@ class MyReviewsScreen extends StatelessWidget {
                     children: [
                       const Icon(Icons.info_outline, size: 48, color: Colors.orange),
                       const SizedBox(height: 16),
-                      Text(
-                        'Database Index Required',
+                      Text(AppLocalizations.of(context)?.databaseIndexRequired ?? 'Database Index Required',
                         style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'To view all your reviews across different areas, a Firestore index needs to be created. Check your console logs for the direct creation link.',
+                      Text(AppLocalizations.of(context)?.toViewAllYourReviewsAcrossDiff ?? 'To view all your reviews across different areas, a Firestore index needs to be created. Check your console logs for the direct creation link.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(color: AppTheme.onSurfaceMid),
                       ),
@@ -204,8 +202,7 @@ class MyReviewsScreen extends StatelessWidget {
             TextButton.icon(
               onPressed: () => _deleteReview(context, cellId, review.id),
               icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.sosRed),
-              label: Text(
-                'Delete',
+              label: Text(AppLocalizations.of(context)?.delete ?? 'Delete',
                 style: GoogleFonts.inter(fontSize: 12, color: AppTheme.sosRed),
               ),
               style: TextButton.styleFrom(
@@ -224,12 +221,12 @@ class MyReviewsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Review?'),
-        content: const Text('Are you sure you want to delete this safety review?'),
+        title: Text(AppLocalizations.of(context)?.deleteReview ?? 'Delete Review?'),
+        content: Text(AppLocalizations.of(context)?.areYouSureYouWantToDeleteThisS ?? 'Are you sure you want to delete this safety review?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)?.cancel1 ?? 'Cancel'),
           ),
           TextButton(
             onPressed: () {
@@ -237,7 +234,7 @@ class MyReviewsScreen extends StatelessWidget {
               AreaSafetyService().deleteReview(cellId, reviewId).then((_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Review deleted successfully.')),
+                    SnackBar(content: Text(AppLocalizations.of(context)?.reviewDeletedSuccessfully ?? 'Review deleted successfully.')),
                   );
                 }
               }).catchError((e) {
@@ -248,7 +245,7 @@ class MyReviewsScreen extends StatelessWidget {
                 }
               });
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context)?.delete ?? 'Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

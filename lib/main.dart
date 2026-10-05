@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
@@ -18,9 +18,11 @@ import 'screens/area_safety_index_screen.dart';
 import 'screens/nearby_emergency_services_screen.dart';
 import 'services/fake_call_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 bool _firebaseInitialized = false;
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final ValueNotifier<Locale> appLocale = ValueNotifier(const Locale('en'));
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,8 +96,7 @@ class SheildApp extends StatelessWidget {
                     size: 64,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Firebase Configuration Missing',
+                  Text(AppLocalizations.of(context)?.firebaseConfigurationMissing ?? 'Firebase Configuration Missing',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -116,13 +117,25 @@ class SheildApp extends StatelessWidget {
       );
     }
 
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      title: 'Sheild',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme,
-
-      initialRoute: '/',
+    return ValueListenableBuilder<Locale>(
+      valueListenable: appLocale,
+      builder: (context, locale, child) {
+        return MaterialApp(
+          navigatorKey: navigatorKey,
+          title: 'Sheild',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.theme,
+          locale: locale,
+          supportedLocales: const [
+            Locale('en'),
+            Locale('hi'),
+            Locale('te'),
+            Locale('ta'),
+            Locale('ml'),
+            Locale('kn'),
+          ],
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          initialRoute: '/',
 
       onGenerateRoute: (settings) {
         final Map<String, WidgetBuilder> routes = {
@@ -165,8 +178,11 @@ class SheildApp extends StatelessWidget {
         );
       },
     );
-  }
+  },
+);
 }
+}
+
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});

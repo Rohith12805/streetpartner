@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/fake_call.dart';
 import '../services/fake_call_service.dart';
 import '../theme/app_theme.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 class FakeCallGeneratorScreen extends StatefulWidget {
   const FakeCallGeneratorScreen({super.key});
@@ -18,6 +19,8 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
       TextEditingController(text: 'Mom');
   final TextEditingController _phoneController =
       TextEditingController(text: '9876543210');
+
+  String _selectedVoiceLanguage = 'en';
 
   String? _selectedQuickOption; // '10s', '30s', '1m', '5m', 'custom'
   DateTime? _customDate;
@@ -148,6 +151,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
       phoneNumber: phoneNumber.isEmpty ? null : phoneNumber,
       scheduledDateTime: scheduledDateTime,
       status: FakeCallStatus.scheduled,
+      voiceLanguage: _selectedVoiceLanguage,
     );
 
     await FakeCallService.instance.saveCall(newCall);
@@ -211,8 +215,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: Text(
-                'Edit Scheduled Fake Call',
+              title: Text(AppLocalizations.of(context)?.editScheduledFakeCall ?? 'Edit Scheduled Fake Call',
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w600,
                   fontSize: 18,
@@ -262,7 +265,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                               });
                             }
                           },
-                          child: const Text('Change'),
+                          child: Text(AppLocalizations.of(context)?.change ?? 'Change'),
                         ),
                       ),
                     ),
@@ -288,7 +291,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                               });
                             }
                           },
-                          child: const Text('Change'),
+                          child: Text(AppLocalizations.of(context)?.change ?? 'Change'),
                         ),
                       ),
                     ),
@@ -298,7 +301,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('CANCEL'),
+                  child: Text(AppLocalizations.of(context)?.cancel ?? 'CANCEL'),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -336,7 +339,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                       _loadScheduledCalls();
                     }
                   },
-                  child: const Text('SAVE'),
+                  child: Text(AppLocalizations.of(context)?.save ?? 'SAVE'),
                 ),
               ],
             );
@@ -402,8 +405,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              'Fake Call Generator',
+            Text(AppLocalizations.of(context)?.fakeCallGenerator ?? 'Fake Call Generator',
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -424,8 +426,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                   const SizedBox(height: 8),
 
                   // Header card
-                  Text(
-                    'Fake Call Schedule',
+                  Text(AppLocalizations.of(context)?.fakeCallSchedule ?? 'Fake Call Schedule',
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -433,8 +434,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Schedule a simulated call to safely exit uncomfortable situations.',
+                  Text(AppLocalizations.of(context)?.scheduleASimulatedCallToSafely ?? 'Schedule a simulated call to safely exit uncomfortable situations.',
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: AppTheme.onSurfaceMid,
@@ -444,8 +444,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                   const SizedBox(height: 20),
 
                   // ── Caller Information Input Section ────────────────────────
-                  Text(
-                    'Caller Information',
+                  Text(AppLocalizations.of(context)?.callerInformation ?? 'Caller Information',
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -471,11 +470,31 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                       prefixIcon: const Icon(Icons.phone_outlined),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedVoiceLanguage,
+                    isExpanded: true,
+                    decoration: AppTheme.inputDecoration(
+                      label: 'Voice Language',
+                      hint: 'Select incoming call voice language',
+                      prefixIcon: const Icon(Icons.record_voice_over_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'en', child: Text('English')),
+                      DropdownMenuItem(value: 'hi', child: Text('हिंदी (Hindi)')),
+                      DropdownMenuItem(value: 'te', child: Text('తెలుగు (Telugu)')),
+                      DropdownMenuItem(value: 'ta', child: Text('தமிழ் (Tamil)')),
+                      DropdownMenuItem(value: 'ml', child: Text('മലയാളം (Malayalam)')),
+                      DropdownMenuItem(value: 'kn', child: Text('ಕನ್ನಡ (Kannada)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedVoiceLanguage = val);
+                    },
+                  ),
                   const SizedBox(height: 24),
 
                   // ── Delay Time / Schedule Section ─────────────────────────
-                  Text(
-                    'Select Delay / Schedule',
+                  Text(AppLocalizations.of(context)?.selectDelaySchedule ?? 'Select Delay / Schedule',
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -498,8 +517,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Upcoming Fake Calls',
+                      Text(AppLocalizations.of(context)?.upcomingFakeCalls ?? 'Upcoming Fake Calls',
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -540,7 +558,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
             child: FilledButton.icon(
               onPressed: _onScheduleCallPressed,
               icon: const Icon(Icons.phone_callback_rounded, size: 20),
-              label: const Text('Schedule Fake Call'),
+              label: Text(AppLocalizations.of(context)?.scheduleFakeCall ?? 'Schedule Fake Call'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 minimumSize: const Size.fromHeight(56),
@@ -723,8 +741,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
             const Icon(Icons.phone_missed_rounded,
                 size: 36, color: AppTheme.placeholder),
             const SizedBox(height: 8),
-            Text(
-              'No upcoming fake calls scheduled',
+            Text(AppLocalizations.of(context)?.noUpcomingFakeCallsScheduled ?? 'No upcoming fake calls scheduled',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: AppTheme.onSurfaceLight,
@@ -749,7 +766,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
                 color: Color(0x0D000000),
                 blurRadius: 10,
@@ -857,7 +874,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                     OutlinedButton.icon(
                       onPressed: () => _onEditCall(call),
                       icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('Edit'),
+                      label: Text(AppLocalizations.of(context)?.edit ?? 'Edit'),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(80, 36),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -870,8 +887,7 @@ class _FakeCallGeneratorScreenState extends State<FakeCallGeneratorScreen> {
                     onPressed: () => _onDeleteCall(call),
                     icon: const Icon(Icons.cancel_outlined,
                         size: 16, color: AppTheme.sosRed),
-                    label: Text(
-                      'Cancel',
+                    label: Text(AppLocalizations.of(context)?.cancel1 ?? 'Cancel',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: AppTheme.sosRed,

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,6 +13,8 @@ import '../widgets/feature_card.dart';
 import '../services/sos_service.dart';
 import '../services/admin_database_service.dart';
 import '../services/emergency_services_service.dart';
+import 'package:streetpartner/main.dart';
+import 'package:streetpartner/l10n/app_localizations.dart';
 
 /// Home Dashboard â€” Figma node 1:149
 /// AppBar with logo + profile avatar, large SOS button centered, 2x2 feature grid
@@ -90,8 +92,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           _isModalOpen = false;
           Navigator.of(context, rootNavigator: true).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('SOS Alert & Alarm Siren cancelled.'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)?.sosAlertAlarmSirenCancelled ?? 'SOS Alert & Alarm Siren cancelled.'),
               duration: Duration(seconds: 2),
             ),
           );
@@ -130,13 +132,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       _initializeSosService();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Active Protection Mode Enabled.')),
+        SnackBar(content: Text(AppLocalizations.of(context)?.activeProtectionModeEnabled ?? 'Active Protection Mode Enabled.')),
       );
     } else {
       SosService.stopForegroundService();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Active Protection Mode Disabled.')),
+        SnackBar(content: Text(AppLocalizations.of(context)?.activeProtectionModeDisabled ?? 'Active Protection Mode Disabled.')),
       );
     }
   }
@@ -324,19 +326,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Cancel Emergency?'),
-          content: const Text('Are you sure you want to stop sharing your live location and cancel the SOS alert?'),
+          title: Text(AppLocalizations.of(context)?.cancelEmergency ?? 'Cancel Emergency?'),
+          content: Text(AppLocalizations.of(context)?.areYouSureYouWantToStopSharing ?? 'Are you sure you want to stop sharing your live location and cancel the SOS alert?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)?.cancel1 ?? 'Cancel'),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
                 _stopLiveLocation();
               },
-              child: const Text('Stop Sharing', style: TextStyle(color: Colors.red)),
+              child: Text(AppLocalizations.of(context)?.stopSharing ?? 'Stop Sharing', style: TextStyle(color: Colors.red)),
             ),
           ],
         ),
@@ -443,8 +445,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       SosService.stopSosCountdown();
                       _mockRerouteAndResume();
                     },
-                    child: Text(
-                      'REROUTE',
+                    child: Text(AppLocalizations.of(context)?.reroute ?? 'REROUTE',
                       style: GoogleFonts.inter(
                         color: AppTheme.primary,
                         fontWeight: FontWeight.bold,
@@ -457,8 +458,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       SosService.stopSosCountdown();
                       SosService.stopMonitoring();
                     },
-                    child: Text(
-                      'CANCEL',
+                    child: Text(AppLocalizations.of(context)?.cancel ?? 'CANCEL',
                       style: GoogleFonts.inter(
                         color: AppTheme.onSurfaceMid,
                         fontWeight: FontWeight.bold,
@@ -505,7 +505,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       Navigator.of(context, rootNavigator: true).pop();
     }
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rerouting... Fetching new directions.')),
+        SnackBar(content: Text(AppLocalizations.of(context)?.reroutingFetchingNewDirections ?? 'Rerouting... Fetching new directions.')),
     );
     
     try {
@@ -534,7 +534,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Route updated! Resuming Route Guard.')),
+              SnackBar(content: Text(AppLocalizations.of(context)?.routeUpdatedResumingRouteGuard ?? 'Route updated! Resuming Route Guard.')),
           );
         }
       } else {
@@ -576,8 +576,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               const Icon(Icons.shield, color: Colors.white),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'ðŸš¨ Emergency dispatched! Live location active.',
+                child: Text(AppLocalizations.of(context)?.emergencyDispatchedLiveLocatio ?? 'ðŸš¨ Emergency dispatched! Live location active.',
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
@@ -608,7 +607,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Live location tracking stopped.'),
+        content: Text(AppLocalizations.of(context)?.liveLocationTrackingStopped ?? 'Live location tracking stopped.'),
         backgroundColor: Colors.green,
       ),
     );
@@ -623,7 +622,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         onPressed: () {
           Navigator.pushNamed(context, '/ai-assistant');
         },
-        backgroundColor: const Color(0xFF8B5CF6),
+        backgroundColor: Colors.blue[800],
         elevation: 6,
         shape: const CircleBorder(),
         child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 28),
@@ -649,6 +648,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _buildFeatureGrid(context),
 
             const SizedBox(height: 24),
+
+            // Bottom Banner
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/images/stay_safe_banner.jpg',
+                width: double.infinity,
+                fit: BoxFit.fitWidth,
+              ),
+            ),
+
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -687,8 +698,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Home Dashboard',
+            child: Text(AppLocalizations.of(context)?.homeDashboard ?? 'Home Dashboard',
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -701,6 +711,41 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         ],
       ),
       actions: [
+        ValueListenableBuilder<Locale>(
+          valueListenable: appLocale,
+          builder: (context, currentLocale, child) {
+            return PopupMenuButton<Locale>(
+              icon: const Icon(Icons.translate, size: 28, color: Colors.black87),
+              onSelected: (Locale locale) {
+                appLocale.value = locale;
+              },
+              itemBuilder: (BuildContext context) {
+                final activeLocale = currentLocale.languageCode;
+                PopupMenuItem<Locale> buildItem(String code, String label) {
+                  final isSelected = activeLocale == code;
+                  return PopupMenuItem<Locale>(
+                    value: Locale(code),
+                    child: Row(
+                      children: [
+                        Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? AppTheme.primary : Colors.black87)),
+                        if (isSelected) const Spacer(),
+                        if (isSelected) const Icon(Icons.check, color: AppTheme.primary, size: 20),
+                      ],
+                    ),
+                  );
+                }
+                return <PopupMenuEntry<Locale>>[
+                  buildItem('en', 'English'),
+                  buildItem('hi', 'हिंदी'),
+                  buildItem('te', 'తెలుగు'),
+                  buildItem('ta', 'தமிழ்'),
+                  buildItem('ml', 'മലയാളം'),
+                  buildItem('kn', 'ಕನ್ನಡ'),
+                ];
+              },
+            );
+          },
+        ),
         // Profile avatar button (Figma node 1:229)
         GestureDetector(
           onTap: () async {
@@ -782,8 +827,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              'LIVE LOCATION & SAFETY INDEX',
+                            child: Text(AppLocalizations.of(context)?.liveLocationSafetyIndex ?? 'LIVE LOCATION & SAFETY INDEX',
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -804,8 +848,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            'Active',
+                          Text(AppLocalizations.of(context)?.active ?? 'Active',
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -873,8 +916,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               const Icon(Icons.location_on, color: AppTheme.sosRed),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Live Location Active',
+                child: Text(AppLocalizations.of(context)?.liveLocationActive ?? 'Live Location Active',
                   style: GoogleFonts.inter(
                     color: AppTheme.sosRed,
                     fontWeight: FontWeight.bold,
@@ -885,8 +927,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            'Your location is being shared with emergency contacts.',
+          Text(AppLocalizations.of(context)?.yourLocationIsBeingSharedWithE ?? 'Your location is being shared with emergency contacts.',
             style: GoogleFonts.inter(
               color: AppTheme.onSurfaceMid,
               fontSize: 14,
@@ -906,10 +947,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         children: [
           const SizedBox(height: 16),
           // SOS Button with pulse animation and active/loading state
-          SosButton(
-            isActive: _isLiveLocationActive,
-            isLoading: false,
-            onPressed: _onSosPressed,
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Image.asset(
+                'assets/images/sos_shield.png',
+                width: 320,
+                height: 320,
+                fit: BoxFit.contain,
+              ),
+              SosButton(
+                isActive: _isLiveLocationActive,
+                isLoading: false,
+                onPressed: _onSosPressed,
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           // Description text (Figma node 1:164)
@@ -918,7 +970,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             child: Text(
               _isLiveLocationActive 
                 ? '🚨 SOS ALERT ACTIVE\nPress again to cancel or stop sharing location.' 
-                : 'Press to trigger a 10-second emergency countdown.\nAlerts trusted contacts & sounds a siren.',
+                : AppLocalizations.of(context)?.sosTriggerDesc ?? 'Press to trigger a 10-second emergency countdown.\nAlerts trusted contacts & sounds a siren.',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: AppTheme.onSurfaceMid,
@@ -948,16 +1000,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         ],
       ),
       child: SwitchListTile(
-        title: Text(
-          'Active Protection Mode',
+        title: Text(AppLocalizations.of(context)?.activeProtectionMode ?? 'Active Protection Mode',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w600,
             fontSize: 15,
             color: AppTheme.onBackground,
           ),
         ),
-        subtitle: Text(
-          'Keep SOS ready in background via notification & shake-to-trigger when outdoors.',
+        subtitle: Text(AppLocalizations.of(context)?.keepSosReadyInBackgroundViaNot ?? 'Keep SOS ready in background via notification & shake-to-trigger when outdoors.',
           style: GoogleFonts.inter(
             fontSize: 12,
             color: AppTheme.onSurfaceMid,
@@ -993,24 +1043,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         icon: Icons.radar_rounded,
         iconBg: const Color(0xFF2A73E1),
         iconColor: Colors.white,
-        title: 'Fencing',
-        description: 'Geo & Route\nperimeters.',
+        title: AppLocalizations.of(context)?.fencingFeature ?? 'Fencing',
+        description: AppLocalizations.of(context)?.fencingFeatureDesc ?? 'Geo & Route\nperimeters.',
         route: '/fencing-hub',
       ),
       _FeatureData(
         icon: Icons.phone_in_talk_rounded,
         iconBg: const Color(0xFF1A73E8),
         iconColor: Colors.white,
-        title: 'Fake Call',
-        description: 'Schedule a simulated\nincoming call.',
+        title: AppLocalizations.of(context)?.fakeCallFeature ?? 'Fake Call',
+        description: AppLocalizations.of(context)?.fakeCallFeatureDesc ?? 'Schedule a simulated\nincoming call.',
         route: '/fake-call',
         ),
 _FeatureData(
         icon: Icons.emergency_rounded,
         iconBg: AppTheme.sosRedContainer,
         iconColor: AppTheme.sosRed,
-        title: 'Emergency',
-        description: 'Quick access to\npolice and fire.',
+        title: AppLocalizations.of(context)?.emergencyFeature ?? 'Emergency',
+        description: AppLocalizations.of(context)?.emergencyFeatureDesc ?? 'Quick access to\npolice and fire.',
         route: '/emergency-services',
       ),
     ];
@@ -1022,8 +1072,7 @@ _FeatureData(
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 16),
-            child: Text(
-              'Quick Features',
+            child: Text(AppLocalizations.of(context)?.quickFeatures ?? 'Quick Features',
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
