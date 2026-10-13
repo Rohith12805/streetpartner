@@ -29,10 +29,21 @@ service cloud.firestore {
     }
     
     
-    // SOS Sessions Rules
-    match /sos_sessions/{sessionId} {
+
+    // Emergencies Rules
+    match /emergencies/{emergencyId} {
+      allow read, write: if true;
+    }
+
+    // SOS Area Stats Rules
+    match /sos_area_stats/{cellId} {
       allow read: if true;
       allow write: if true;
+    }
+
+    // Road Qualities / Edge Ratings Rules
+    match /road_qualities/{roadId} {
+      allow read, write: if true;
     }
 
     // Default catch-all to prevent accidental exposure

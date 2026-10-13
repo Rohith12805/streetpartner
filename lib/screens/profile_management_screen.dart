@@ -1,11 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/sos_service.dart';
@@ -34,56 +31,6 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
           SnackBar(
             content: Text(AppLocalizations.of(context)?.profileUpdatedSuccessfully ?? 'Profile updated successfully!'),
             backgroundColor: Colors.green,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _updateProfilePicture() async {
-    try {
-      final pickedFile = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-      );
-      if (pickedFile == null) return;
-
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-
-      final file = File(pickedFile.path);
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('profile_pictures')
-          .child('${user.uid}.jpg');
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)?.uploadingPicture ?? 'Uploading picture...')));
-      }
-
-      await ref.putFile(file);
-      final photoUrl = await ref.getDownloadURL();
-
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {'photoUrl': photoUrl},
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)?.profilePictureUpdated ?? 'Profile picture updated!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to upload picture: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -262,66 +209,20 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
-          // Avatar with edit button
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.divider,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x0D000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: photoUrl != null && photoUrl.isNotEmpty
-                    ? Image.network(
-                        photoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                              Icons.person_rounded,
-                              color: AppTheme.onSurfaceLight,
-                              size: 48,
-                            ),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        },
-                      )
-                    : const Icon(
-                        Icons.person_rounded,
-                        color: AppTheme.onSurfaceLight,
-                        size: 48,
-                      ),
-              ),
-              // Edit photo button (Figma node 1:335 — blue circle)
-              GestureDetector(
-                onTap: _updateProfilePicture,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppTheme.primary,
-                  ),
-                  child: const Icon(
-                    Icons.camera_alt_rounded,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-              ),
-            ],
+          // Clean profile avatar
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primaryLight.withValues(alpha: 0.15),
+              border: Border.all(color: AppTheme.primary, width: 2),
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              color: AppTheme.primary,
+              size: 54,
+            ),
           ),
           // Name and role text below avatar
           Positioned(

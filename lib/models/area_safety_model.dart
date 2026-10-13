@@ -8,6 +8,7 @@ class AreaSafetyCell {
   final double ratingSum;
   final double averageRating;
   final Map<String, int> issueCounts;
+  final int sosCount;
   final DateTime? lastUpdated;
 
   AreaSafetyCell({
@@ -18,6 +19,7 @@ class AreaSafetyCell {
     required this.ratingSum,
     required this.averageRating,
     required this.issueCounts,
+    this.sosCount = 0,
     this.lastUpdated,
   });
 
@@ -30,6 +32,7 @@ class AreaSafetyCell {
       ratingSum: (map['ratingSum'] as num?)?.toDouble() ?? 0.0,
       averageRating: (map['averageRating'] as num?)?.toDouble() ?? 0.0,
       issueCounts: Map<String, int>.from(map['issueCounts'] ?? {}),
+      sosCount: (map['sosCount'] as num?)?.toInt() ?? 0,
       lastUpdated: (map['lastUpdated'] as Timestamp?)?.toDate(),
     );
   }
@@ -42,6 +45,7 @@ class AreaSafetyCell {
       'ratingSum': ratingSum,
       'averageRating': averageRating,
       'issueCounts': issueCounts,
+      'sosCount': sosCount,
       'lastUpdated': FieldValue.serverTimestamp(),
     };
   }

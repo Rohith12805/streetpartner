@@ -26,9 +26,12 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
   LatLng _currentMapCenter = const LatLng(0, 0);
   LatLng? _userLocation;
   String _activeCellId = '';
+  double _currentZoom = 14.0;
   
   StreamSubscription<AreaSafetyCell?>? _cellSubscription;
+  StreamSubscription<Map<String, AreaSafetyCell>>? _allCellsSubscription;
   AreaSafetyCell? _activeCellData;
+  Map<String, AreaSafetyCell> _allCells = {};
   bool _isLoading = true;
   bool _isSearching = false;
 
@@ -36,11 +39,19 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
   void initState() {
     super.initState();
     _initializeLocation();
+    _allCellsSubscription = _safetyService.streamAllCells().listen((cells) {
+      if (mounted) {
+        setState(() {
+          _allCells = cells;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _cellSubscription?.cancel();
+    _allCellsSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -178,31 +189,66 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
   }
 
   List<Polygon> _buildCellPolygons() {
+    // Zoom threshold: don't show any color on any boxes if zoom covers more than loaded (< 13.0)
+    if (_currentZoom < 13.0) return [];
     if (_activeCellId.isEmpty) return [];
 
-    // Calculate bounds of the current cell based on our rounding logic
-    // A cell is roughly lat to lat+0.01 and lng to lng+0.01 (but since we round, it spans +/- 0.005)
     final center = AreaSafetyService.getCellCenter(_activeCellId);
-    final lat = center.latitude;
-    final lng = center.longitude;
-    
-    final points = [
-      LatLng(lat - 0.005, lng - 0.005),
-      LatLng(lat + 0.005, lng - 0.005),
-      LatLng(lat + 0.005, lng + 0.005),
-      LatLng(lat - 0.005, lng + 0.005),
-    ];
+    final cLat = double.parse(center.latitude.toStringAsFixed(2));
+    final cLng = double.parse(center.longitude.toStringAsFixed(2));
 
-    final color = _getSafetyColor(_activeCellData?.averageRating);
+    final List<Polygon> polygons = [];
 
-    return [
-      Polygon(
-        points: points,
-        color: color.withValues(alpha: 0.3),
-        borderColor: color,
-        borderStrokeWidth: 2,
-      )
-    ];
+    // Load 7 boxes radius in all directions (-7 to +7)
+    for (int dy = -7; dy <= 7; dy++) {
+      for (int dx = -7; dx <= 7; dx++) {
+        final bLat = double.parse((cLat + dy * 0.01).toStringAsFixed(2));
+        final bLng = double.parse((cLng + dx * 0.01).toStringAsFixed(2));
+        final cellId = 'cell_${bLat.toStringAsFixed(2)}_${bLng.toStringAsFixed(2)}';
+        final isActive = (dy == 0 && dx == 0);
+
+        final cellData = _allCells[cellId];
+        final color = _getSafetyColor(cellData?.averageRating);
+
+        final points = [
+          LatLng(bLat - 0.005, bLng - 0.005),
+          LatLng(bLat + 0.005, bLng - 0.005),
+          LatLng(bLat + 0.005, bLng + 0.005),
+          LatLng(bLat - 0.005, bLng + 0.005),
+        ];
+
+        if (isActive) {
+          polygons.add(
+            Polygon(
+              points: points,
+              color: color.withValues(alpha: 0.35),
+              borderColor: AppTheme.primary,
+              borderStrokeWidth: 3,
+            ),
+          );
+        } else if (cellData != null && cellData.totalRatings > 0) {
+          polygons.add(
+            Polygon(
+              points: points,
+              color: color.withValues(alpha: 0.25),
+              borderColor: color,
+              borderStrokeWidth: 1.5,
+            ),
+          );
+        } else {
+          polygons.add(
+            Polygon(
+              points: points,
+              color: Colors.transparent,
+              borderColor: Colors.grey.withValues(alpha: 0.25),
+              borderStrokeWidth: 1,
+            ),
+          );
+        }
+      }
+    }
+
+    return polygons;
   }
 
   @override
@@ -232,10 +278,13 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
                     initialCenter: _userLocation ?? const LatLng(0, 0),
                     initialZoom: 14.0,
                     onPositionChanged: (position, hasGesture) {
-                      if (hasGesture) {
-                        setState(() {
+                      setState(() {
+                        _currentZoom = position.zoom;
+                        if (hasGesture) {
                           _currentMapCenter = position.center;
-                        });
+                        }
+                      });
+                      if (hasGesture) {
                         _updateActiveCell(position.center);
                       }
                     },
@@ -404,6 +453,35 @@ class _AreaSafetyIndexScreenState extends State<AreaSafetyIndexScreen> {
                     color: color.withValues(alpha: 1.0),
                     fontSize: 14,
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: (_activeCellData?.sosCount ?? 0) > 0 
+                      ? AppTheme.sosRed.withValues(alpha: 0.15) 
+                      : Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: (_activeCellData?.sosCount ?? 0) > 0 ? AppTheme.sosRed : Colors.blue.shade700,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${_activeCellData?.sosCount ?? 0} SOS',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold,
+                        color: (_activeCellData?.sosCount ?? 0) > 0 ? AppTheme.sosRed : Colors.blue.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Spacer(),

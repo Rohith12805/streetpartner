@@ -61,7 +61,7 @@
   "liveLocationActive": "लाइव स्थान सक्रिय",
   "yourLocationIsBeingSharedWithE": "आपका स्थान आपातकालीन संपर्कों के साथ साझा किया जा रहा है।",
   "activeProtectionMode": "सक्रिय सुरक्षा मोड",
-  "keepSosReadyInBackgroundViaNot": "जब बाहर हों तो अधिसूचना और शेक-टू-ट्रिगर के माध्यम से पृष्ठभूमि में एसओएस तैयार रखें।",
+  "keepSosReadyInBackgroundViaNot": "जब बाहर हों तो शेक-टू-ट्रिगर के माध्यम से पृष्ठभूमि में एसओएस तैयार रखें।",
   "quickFeatures": "त्वरित सुविधाएँ",
   "myLocation": "मेरा स्थान",
   "live": "रहना",

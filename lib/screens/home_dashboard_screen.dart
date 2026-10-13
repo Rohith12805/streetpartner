@@ -9,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sos_button.dart';
-import '../widgets/feature_card.dart';
 import '../services/sos_service.dart';
 import '../services/admin_database_service.dart';
 import '../services/emergency_services_service.dart';
@@ -66,6 +65,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
       int tick = event['secondsLeft'] ?? -1;
       bool isRouteDeviation = event['isRouteDeviation'] ?? false;
+      String? triggerFromNative = event['triggerSource'] as String?;
+      if (triggerFromNative != null && triggerFromNative.isNotEmpty) {
+        _activeTriggerSource = triggerFromNative;
+      }
 
       if (tick > 0) {
         _secondsLeft = tick;
@@ -130,16 +133,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
     if (value) {
       _initializeSosService();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)?.activeProtectionModeEnabled ?? 'Active Protection Mode Enabled.')),
-      );
     } else {
       SosService.stopForegroundService();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)?.activeProtectionModeDisabled ?? 'Active Protection Mode Disabled.')),
-      );
     }
   }
 
@@ -314,10 +309,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Future<void> _initializeSosService() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     SosService.startSosService(
       phoneNumbers: _targetNumbers,
-      message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: https://streetpartner.web.app/?session=${FirebaseAuth.instance.currentUser?.uid ?? "unknown"}',
-                        userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
+      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
+      userId: userId,
     );
   }
 
@@ -350,11 +346,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     // Manually trigger the native foreground countdown
     SosService.triggerSosCountdown(
       phoneNumbers: _targetNumbers,
-      message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: https://streetpartner.web.app/?session=${FirebaseAuth.instance.currentUser?.uid ?? "unknown"}'
+      message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
     );
   }
 
-  void _showSosCountdownDialog(bool isRouteDeviation) {
+  String _activeTriggerSource = 'SOS Button';
+
+  void _showSosCountdownDialog(bool isRouteDeviation, {String? triggerSource}) {
+    if (triggerSource != null) {
+      _activeTriggerSource = triggerSource;
+    }
     if (_isModalOpen) return;
     _isModalOpen = true;
 
@@ -405,7 +406,31 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.info_outline_rounded, size: 15, color: Color(0xFFB45309)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Triggered by: $_activeTriggerSource',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFFB45309),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
                   Container(
                     width: 90,
                     height: 90,
@@ -472,13 +497,25 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+                    final emergencyId = await AdminDatabaseService.reportEmergencyToAdmin(
+                      userId: userId,
+                      userName: _userName,
+                      bloodGroup: _userBloodGroup,
+                      mobileNumber: _userMobileNumber,
+                      liveLocationLink: '',
+                      lat: _currentPosition?.latitude,
+                      lng: _currentPosition?.longitude,
+                    );
+                    final link = 'https://streetpartner.web.app/?session=${emergencyId ?? userId}';
                     SosService.triggerSosAlert(
                       phoneNumbers: _targetNumbers,
-                      message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: https://streetpartner.web.app/?session=${FirebaseAuth.instance.currentUser?.uid ?? "unknown"}',
-                      userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown'
+                      message: 'EMERGENCY SOS: $_userName needs immediate assistance! Live Location: $link',
+                      userId: userId,
+                      emergencyId: emergencyId,
                     );
-                    _onSosDispatched();
+                    _onSosDispatched(emergencyId);
                   },
                   child: Text(
                     isRouteDeviation ? 'DISPATCH NOW' : 'SEND NOW',
@@ -549,21 +586,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
   }
 
-  void _onSosDispatched() {
+  void _onSosDispatched([String? passedEmergencyId]) async {
     SosService.stopMonitoring();
     
-    // Add to secondary database
     final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-    final locationLink = 'https://streetpartner.web.app/?session=$userId';
-      AdminDatabaseService.reportEmergencyToAdmin(
+    if (passedEmergencyId == null) {
+      await AdminDatabaseService.reportEmergencyToAdmin(
         userId: userId,
         userName: _userName,
         bloodGroup: _userBloodGroup,
         mobileNumber: _userMobileNumber,
-        liveLocationLink: locationLink,
+        liveLocationLink: '',
         lat: _currentPosition?.latitude,
         lng: _currentPosition?.longitude,
       );
+    }
 
     if (mounted) {
       setState(() {
@@ -1007,7 +1044,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             color: AppTheme.onBackground,
           ),
         ),
-        subtitle: Text(AppLocalizations.of(context)?.keepSosReadyInBackgroundViaNot ?? 'Keep SOS ready in background via notification & shake-to-trigger when outdoors.',
+        subtitle: Text(AppLocalizations.of(context)?.keepSosReadyInBackgroundViaNot ?? 'Keep SOS ready in background with shake-to-trigger detection when outdoors.',
           style: GoogleFonts.inter(
             fontSize: 12,
             color: AppTheme.onSurfaceMid,
@@ -1040,12 +1077,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     // 2x2 grid data (Figma nodes 1:171, 1:181, 1:191, 1:200)
     final features = [
       _FeatureData(
-        icon: Icons.radar_rounded,
+        icon: Icons.my_location_rounded,
         iconBg: const Color(0xFF2A73E1),
         iconColor: Colors.white,
-        title: AppLocalizations.of(context)?.fencingFeature ?? 'Fencing',
-        description: AppLocalizations.of(context)?.fencingFeatureDesc ?? 'Geo & Route\nperimeters.',
-        route: '/fencing-hub',
+        title: AppLocalizations.of(context)?.geoFencingTitle ?? 'Geo-Fencing',
+        description: 'Safe perimeter\ncircular zone.',
+        route: '/geofencing',
+      ),
+      _FeatureData(
+        icon: Icons.navigation_rounded,
+        iconBg: const Color(0xFF10B981),
+        iconColor: Colors.white,
+        title: 'Navigation',
+        description: 'Safe routes &\ndirections.',
+        route: '/navigation',
       ),
       _FeatureData(
         icon: Icons.phone_in_talk_rounded,
@@ -1054,8 +1099,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         title: AppLocalizations.of(context)?.fakeCallFeature ?? 'Fake Call',
         description: AppLocalizations.of(context)?.fakeCallFeatureDesc ?? 'Schedule a simulated\nincoming call.',
         route: '/fake-call',
-        ),
-_FeatureData(
+      ),
+      _FeatureData(
         icon: Icons.emergency_rounded,
         iconBg: AppTheme.sosRedContainer,
         iconColor: AppTheme.sosRed,

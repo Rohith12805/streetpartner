@@ -99,14 +99,24 @@
           return;
         }
 
+        if (firebase.apps.length === 0) {
+          firebase.initializeApp({
+            apiKey: "AIzaSyAtHdm7HlLgeNrMiFI2IYhXWLwv0WOUrAo",
+            authDomain: "streetpartner.firebaseapp.com",
+            projectId: "streetpartner",
+            storageBucket: "streetpartner.firebasestorage.app",
+            messagingSenderId: "36523415965",
+            appId: "1:36523415965:web:6ad9e28eb654ddbc547774"
+          });
+        }
         const db = firebase.firestore();
         
-        db.collection('sos_sessions').doc(sessionId).onSnapshot((doc) => {
+        db.collection('emergencies').doc(sessionId).onSnapshot((doc) => {
           if (doc.exists) {
             const data = doc.data();
-            const lat = data.latitude;
-            const lng = data.longitude;
-            const isActive = data.active;
+            const lat = data.lat !== undefined ? data.lat : data.latitude;
+            const lng = data.lng !== undefined ? data.lng : data.longitude;
+            const isActive = data.isActive !== undefined ? data.isActive : data.active;
             
             if (lat && lng) {
               const pos = [lat, lng];
@@ -130,12 +140,11 @@
               statusEl.textContent = 'User is Safe - Live Location Stopped';
               statusEl.className = 'status-inactive';
               if (marker) {
-                // Change marker to non-pulsing when stopped
                 marker.setIcon(new L.Icon.Default());
               }
             }
           } else {
-            statusEl.textContent = 'Error: Session not found or expired';
+            statusEl.textContent = 'Error: Emergency session not found or expired';
           }
         }, (error) => {
           console.error("Firestore error:", error);

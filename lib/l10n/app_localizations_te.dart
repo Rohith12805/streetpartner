@@ -212,7 +212,7 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get keepSosReadyInBackgroundViaNot =>
-      'నోటిఫికేషన్ మరియు అవుట్‌డోర్‌లో ఉన్నప్పుడు షేక్-టు-ట్రిగ్గర్ ద్వారా SOSని నేపథ్యంలో సిద్ధంగా ఉంచండి.';
+      'అవుట్‌డోర్‌లో ఉన్నప్పుడు షేక్-టు-ట్రిగ్గర్ ద్వారా SOSని నేపథ్యంలో సిద్ధంగా ఉంచండి.';
 
   @override
   String get quickFeatures => 'త్వరిత లక్షణాలు';

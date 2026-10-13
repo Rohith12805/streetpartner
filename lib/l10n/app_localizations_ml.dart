@@ -213,7 +213,7 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get keepSosReadyInBackgroundViaNot =>
-      'നോട്ടിഫിക്കേഷൻ മുഖേന പശ്ചാത്തലത്തിൽ SOS തയ്യാറാക്കി സൂക്ഷിക്കുക.';
+      'പശ്ചാത്തലത്തിൽ ഷേക്ക്-ടു-ട്രിഗർ വഴി SOS തയ്യാറാക്കി സൂക്ഷിക്കുക.';
 
   @override
   String get quickFeatures => 'ദ്രുത സവിശേഷതകൾ';

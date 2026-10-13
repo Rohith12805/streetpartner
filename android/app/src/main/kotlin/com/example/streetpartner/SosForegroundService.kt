@@ -77,6 +77,8 @@ class SosForegroundService : Service(), SensorEventListener {
     private var sosMessage: String = "EMERGENCY SOS: I need immediate help!"
     private var callEmergency: Boolean = true
     private var userId: String = "unknown"
+    private var emergencyId: String = ""
+    private var currentTriggerSource: String = "SOS Button"
 
     private var monitoringMode: String = "NONE"
     private var geofenceCenter: Location? = null
@@ -125,11 +127,14 @@ class SosForegroundService : Service(), SensorEventListener {
                 sosMessage = intent?.getStringExtra(EXTRA_MESSAGE) ?: sosMessage
                 callEmergency = intent?.getBooleanExtra(EXTRA_CALL_EMERGENCY, true) ?: callEmergency
                 userId = intent?.getStringExtra("EXTRA_USER_ID") ?: userId
+                intent?.getStringExtra("EXTRA_EMERGENCY_ID")?.let { if (it.isNotBlank()) emergencyId = it }
                 startForeground(NOTIFICATION_ID, buildNotification(-1))
             }
             ACTION_TRIGGER_SOS -> {
                 intent?.getStringArrayListExtra(EXTRA_PHONE_NUMBERS)?.let { if (it.isNotEmpty()) phoneNumbers = it }
                 intent?.getStringExtra(EXTRA_MESSAGE)?.let { sosMessage = it }
+                intent?.getStringExtra("EXTRA_EMERGENCY_ID")?.let { if (it.isNotBlank()) emergencyId = it }
+                currentTriggerSource = intent?.getStringExtra("EXTRA_TRIGGER_SOURCE") ?: "SOS Button"
                 startForeground(NOTIFICATION_ID, buildNotification(-1))
                 startSosCountdown()
             }
@@ -141,6 +146,7 @@ class SosForegroundService : Service(), SensorEventListener {
                 intent?.getStringArrayListExtra(EXTRA_PHONE_NUMBERS)?.let { if (it.isNotEmpty()) phoneNumbers = it }
                 intent?.getStringExtra(EXTRA_MESSAGE)?.let { sosMessage = it }
                 userId = intent?.getStringExtra("EXTRA_USER_ID") ?: userId
+                intent?.getStringExtra("EXTRA_EMERGENCY_ID")?.let { if (it.isNotBlank()) emergencyId = it }
                 startForeground(NOTIFICATION_ID, buildNotification(-1))
                 stopSosCountdown()
                 executeSosPayload()
@@ -196,11 +202,15 @@ class SosForegroundService : Service(), SensorEventListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 CHANNEL_ID,
-                "SOS Foreground Service Channel",
-                NotificationManager.IMPORTANCE_HIGH
+                "SOS Background Service",
+                NotificationManager.IMPORTANCE_MIN
             ).apply {
-                description = "Ongoing SOS service for quick emergency trigger"
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                description = "Silent background safety service"
+                setShowBadge(false)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
@@ -220,32 +230,17 @@ class SosForegroundService : Service(), SensorEventListener {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
-            .setOngoing(true)
+            .setOngoing(false)
             .setOnlyAlertOnce(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setContentTitle("")
+            .setContentText("")
 
         if (secondsLeft >= 0) {
-            if (isDeviation) {
-                builder.setContentTitle("ROUTE DEVIATION DETECTED!")
-                builder.setContentText("Escalating to SOS in ${secondsLeft}s...")
-            } else {
-                builder.setContentTitle("SOS Alert Triggered!")
-                builder.setContentText("SOS Dispatched in ${secondsLeft}s...")
-            }
-            builder.color = ContextCompat.getColor(this, android.R.color.holo_red_dark)
-            
-            // Critical for waking the screen from sleep/background
+            // Wake the screen from sleep/background to present the in-app countdown dialog
             builder.setFullScreenIntent(pendingIntent, true)
-        } else {
-            builder.setContentTitle("StreetPartner SOS Service Active")
-            builder.setContentText("Shake 3 times or tap TRIGGER to dispatch SOS")
-            
-            // Add Trigger button if not counting down
-            val triggerIntent = Intent(this, SosForegroundService::class.java).apply {
-                action = ACTION_TRIGGER_SOS
-            }
-            val triggerPendingIntent = PendingIntent.getService(this, 1, triggerIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            builder.addAction(android.R.drawable.ic_menu_send, "TRIGGER SOS", triggerPendingIntent)
         }
 
         return builder.build()
@@ -284,6 +279,7 @@ class SosForegroundService : Service(), SensorEventListener {
                 }
                 intent.putExtra("secondsLeft", secondsLeft)
                 intent.putExtra("isRouteDeviation", false)
+                intent.putExtra("triggerSource", currentTriggerSource)
                 sendBroadcast(intent)
             }
 
@@ -362,23 +358,77 @@ class SosForegroundService : Service(), SensorEventListener {
     }
 
     private fun executeSosPayload() {
-        startLiveLocationLoop()
+        val db = FirebaseFirestore.getInstance()
+        val locationMap = fetchLocationData()
 
-        // Provide web link for live location tracking
-        val fullMessage = sosMessage
+        if (emergencyId.isNotBlank()) {
+            startLiveLocationLoop()
+            dispatchSmsAlerts()
+        } else if (userId != "unknown") {
+            try {
+                db.collection("emergencies")
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("isActive", true)
+                    .limit(1)
+                    .get()
+                    .addOnSuccessListener { query ->
+                        if (!query.isEmpty) {
+                            emergencyId = query.documents[0].id
+                        } else {
+                            val newDoc = db.collection("emergencies").document()
+                            emergencyId = newDoc.id
+                            val data = hashMapOf<String, Any>(
+                                "userId" to userId,
+                                "userName" to "SOS Alert",
+                                "bloodGroup" to "Unknown",
+                                "mobileNumber" to (if (phoneNumbers.isNotEmpty()) phoneNumbers[0] else ""),
+                                "liveLocationLink" to "https://streetpartner.web.app/?session=$emergencyId",
+                                "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                                "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                                "triggeredAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                                "isActive" to true,
+                                "active" to true
+                            )
+                            if (locationMap != null) {
+                                data["lat"] = locationMap["latitude"]!!
+                                data["lng"] = locationMap["longitude"]!!
+                                data["latitude"] = locationMap["latitude"]!!
+                                data["longitude"] = locationMap["longitude"]!!
+                                data["accuracy"] = locationMap["accuracy"]!!
+                            }
+                            newDoc.set(data)
+                        }
+                        startLiveLocationLoop()
+                        dispatchSmsAlerts()
+                    }
+                    .addOnFailureListener {
+                        startLiveLocationLoop()
+                        dispatchSmsAlerts()
+                    }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                startLiveLocationLoop()
+                dispatchSmsAlerts()
+            }
+        } else {
+            startLiveLocationLoop()
+            dispatchSmsAlerts()
+        }
+    }
 
-        // SMS
+    private fun dispatchSmsAlerts() {
+        val sessionParam = if (emergencyId.isNotBlank()) emergencyId else userId
+        val fullMessage = if (sosMessage.contains("?session=")) {
+            sosMessage.replace(Regex("\\?session=[^\\s]+"), "?session=$sessionParam")
+        } else {
+            "$sosMessage Live Location: https://streetpartner.web.app/?session=$sessionParam"
+        }
+
         for (number in phoneNumbers) {
             if (number.isNotBlank()) {
                 sendSmsToContact(number, fullMessage)
             }
         }
-
-        // Call hardcoded official emergency number (using user's number for testing)
-        // Disabled as per user request to stop call feature
-        // if (callEmergency) {
-        //     initiateDirectPhoneCall("9381117370")
-        // }
     }
 
     private fun startLiveLocationLoop() {
@@ -396,19 +446,51 @@ class SosForegroundService : Service(), SensorEventListener {
                 }
                 
                 val locationMap = fetchLocationData()
-                if (userId != "unknown") {
+                val db = FirebaseFirestore.getInstance()
+                
+                if (emergencyId.isNotBlank()) {
                     try {
-                        val db = FirebaseFirestore.getInstance()
-                        val data = hashMapOf<String, Any>(
-                            "timestamp" to System.currentTimeMillis(),
+                        val updates = hashMapOf<String, Any>(
+                            "lastLocationUpdate" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                            "isActive" to true,
                             "active" to true
                         )
                         if (locationMap != null) {
-                            data["latitude"] = locationMap["latitude"]!!
-                            data["longitude"] = locationMap["longitude"]!!
-                            data["accuracy"] = locationMap["accuracy"]!!
+                            updates["lat"] = locationMap["latitude"]!!
+                            updates["lng"] = locationMap["longitude"]!!
+                            updates["latitude"] = locationMap["latitude"]!!
+                            updates["longitude"] = locationMap["longitude"]!!
+                            updates["accuracy"] = locationMap["accuracy"]!!
                         }
-                        db.collection("sos_sessions").document(userId).set(data)
+                        db.collection("emergencies").document(emergencyId).update(updates)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                } else if (userId != "unknown") {
+                    try {
+                        db.collection("emergencies")
+                            .whereEqualTo("userId", userId)
+                            .whereEqualTo("isActive", true)
+                            .limit(1)
+                            .get()
+                            .addOnSuccessListener { q ->
+                                if (!q.isEmpty) {
+                                    emergencyId = q.documents[0].id
+                                    val updates = hashMapOf<String, Any>(
+                                        "lastLocationUpdate" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                                        "isActive" to true,
+                                        "active" to true
+                                    )
+                                    if (locationMap != null) {
+                                        updates["lat"] = locationMap["latitude"]!!
+                                        updates["lng"] = locationMap["longitude"]!!
+                                        updates["latitude"] = locationMap["latitude"]!!
+                                        updates["longitude"] = locationMap["longitude"]!!
+                                        updates["accuracy"] = locationMap["accuracy"]!!
+                                    }
+                                    q.documents[0].reference.update(updates)
+                                }
+                            }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
@@ -426,14 +508,36 @@ class SosForegroundService : Service(), SensorEventListener {
         liveLocationRunnable = null
         stopPassiveMonitoring()
         
-        if (userId != "unknown") {
+        val db = FirebaseFirestore.getInstance()
+        val updates = mapOf<String, Any>(
+            "isActive" to false,
+            "active" to false,
+            "resolvedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+        )
+
+        if (emergencyId.isNotBlank()) {
             try {
-                val db = FirebaseFirestore.getInstance()
-                db.collection("sos_sessions").document(userId).update("active", false)
+                db.collection("emergencies").document(emergencyId).update(updates)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+        if (userId != "unknown") {
+            try {
+                db.collection("emergencies")
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("isActive", true)
+                    .get()
+                    .addOnSuccessListener { q ->
+                        for (doc in q.documents) {
+                            doc.reference.update(updates)
+                        }
+                    }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        emergencyId = ""
     }
 
     // --- Sensor & Media logic (copied from MainActivity) ---
@@ -480,6 +584,7 @@ class SosForegroundService : Service(), SensorEventListener {
 
             if (shakeCount >= 3) {
                 shakeCount = 0
+                currentTriggerSource = "Shake to Trigger"
                 startSosCountdown()
             }
         }
@@ -604,6 +709,7 @@ class SosForegroundService : Service(), SensorEventListener {
                 val center = geofenceCenter ?: return
                 if (center.latitude == 0.0 && center.longitude == 0.0) return
                 if (currentLocation.distanceTo(center) > geofenceRadius) {
+                    currentTriggerSource = "Geo-fencing"
                     startSosCountdown()
                 }
             }

@@ -213,7 +213,7 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get keepSosReadyInBackgroundViaNot =>
-      'ಹೊರಾಂಗಣದಲ್ಲಿ ಅಧಿಸೂಚನೆ ಮತ್ತು ಶೇಕ್-ಟು-ಟ್ರಿಗ್ಗರ್ ಮೂಲಕ SOS ಅನ್ನು ಹಿನ್ನೆಲೆಯಲ್ಲಿ ಸಿದ್ಧಪಡಿಸಿ.';
+      'ಹೊರಾಂಗಣದಲ್ಲಿ ಶೇಕ್-ಟು-ಟ್ರಿಗ್ಗರ್ ಮೂಲಕ SOS ಅನ್ನು ಹಿನ್ನೆಲೆಯಲ್ಲಿ ಸಿದ್ಧಪಡಿಸಿ.';
 
   @override
   String get quickFeatures => 'ತ್ವರಿತ ವೈಶಿಷ್ಟ್ಯಗಳು';

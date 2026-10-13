@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/area_safety_model.dart';
 
 class AreaSafetyService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Collection reference
@@ -64,6 +64,19 @@ class AreaSafetyService {
         return AreaSafetyCell.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }
       return null;
+    });
+  }
+
+  /// Stream all area safety cells for grid rendering
+  Stream<Map<String, AreaSafetyCell>> streamAllCells() {
+    return _cellsRef.snapshots().map((snapshot) {
+      final map = <String, AreaSafetyCell>{};
+      for (var doc in snapshot.docs) {
+        if (doc.data() != null) {
+          map[doc.id] = AreaSafetyCell.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        }
+      }
+      return map;
     });
   }
 

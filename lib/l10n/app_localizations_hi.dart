@@ -208,7 +208,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get keepSosReadyInBackgroundViaNot =>
-      'जब बाहर हों तो अधिसूचना और शेक-टू-ट्रिगर के माध्यम से पृष्ठभूमि में एसओएस तैयार रखें।';
+      'जब बाहर हों तो शेक-टू-ट्रिगर के माध्यम से पृष्ठभूमि में एसओएस तैयार रखें।';
 
   @override
   String get quickFeatures => 'त्वरित सुविधाएँ';

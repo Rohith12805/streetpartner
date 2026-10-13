@@ -1,11 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
 import 'package:streetpartner/l10n/app_localizations.dart';
 
@@ -24,7 +21,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _phoneCtrl = TextEditingController();
   String? _selectedBloodGroup;
   bool _isLoading = false;
-  File? _profileImage;
 
   // Dynamic emergency contacts list (Figma node 1:97)
   final List<TextEditingController> _emergencyContacts = [
@@ -51,59 +47,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       c.dispose();
     }
     super.dispose();
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      final pickedFile = await ImagePicker().pickImage(
-        source: source,
-        imageQuality: 70,
-      );
-      if (pickedFile != null) {
-        setState(() {
-          _profileImage = File(pickedFile.path);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
-      }
-    }
-  }
-
-  void _showImagePickerBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: Text(AppLocalizations.of(context)?.chooseFromGallery ?? 'Choose from Gallery'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: Text(AppLocalizations.of(context)?.takeAPhoto ?? 'Take a Photo'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   void _addEmergencyContact() {
@@ -161,16 +104,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         throw Exception("No authenticated user found.");
       }
 
-      String photoUrl = user.photoURL ?? '';
-
-      if (_profileImage != null) {
-        final ref = FirebaseStorage.instance
-            .ref()
-            .child('profile_pictures')
-            .child('${user.uid}.jpg');
-        await ref.putFile(_profileImage!);
-        photoUrl = await ref.getDownloadURL();
-      }
+      const String photoUrl = '';
 
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'firstName': firstName,
@@ -242,60 +176,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Back button icon circle (Figma node 1:48 — blue circle)
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryLight,
-              ),
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-            // Avatar picker
             GestureDetector(
-              onTap: _showImagePickerBottomSheet,
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppTheme.divider,
-                    backgroundImage: _profileImage != null
-                        ? FileImage(_profileImage!)
-                        : null,
-                    child: _profileImage == null
-                        ? const Icon(
-                            Icons.person_rounded,
-                            color: AppTheme.onSurfaceLight,
-                            size: 40,
-                          )
-                        : null,
-                  ),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppTheme.primary,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt_rounded,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                  ),
-                ],
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.primaryLight,
+                ),
+                child: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
             ),
           ],

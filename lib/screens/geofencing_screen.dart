@@ -92,6 +92,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               SosService.triggerSosCountdown(
                 phoneNumbers: ['9381117370'],
                 message: 'EMERGENCY: Geofence Safe Zone Breached! Location: https://maps.google.com/?q=${newLoc.latitude},${newLoc.longitude}',
+                triggerSource: 'Geo-fencing',
               );
               SosService.playSiren();
             }

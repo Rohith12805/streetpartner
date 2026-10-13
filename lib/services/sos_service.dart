@@ -72,12 +72,14 @@ class SosService {
     required List<String> phoneNumbers,
     required String message,
     required String userId,
+    String? emergencyId,
   }) async {
     try {
       await _channel.invokeMethod('startForegroundService', {
         'phoneNumbers': phoneNumbers,
         'message': message,
         'userId': userId,
+        'emergencyId': emergencyId ?? '',
       });
     } catch (_) {}
   }
@@ -93,11 +95,15 @@ class SosService {
   static Future<void> triggerSosCountdown({
     required List<String> phoneNumbers,
     required String message,
+    String? emergencyId,
+    String triggerSource = 'SOS Button',
   }) async {
     try {
       await _channel.invokeMethod('triggerSosCountdown', {
         'phoneNumbers': phoneNumbers,
         'message': message,
+        'emergencyId': emergencyId ?? '',
+        'triggerSource': triggerSource,
       });
     } catch (_) {}
   }
@@ -129,6 +135,7 @@ class SosService {
     List<String> phoneNumbers = const ['112', '+18005550199'],
     String message = 'EMERGENCY SOS: I need immediate assistance!',
     String userId = '',
+    String? emergencyId,
   }) async {
     try {
       final result = await _channel
@@ -136,6 +143,7 @@ class SosService {
             'phoneNumbers': phoneNumbers,
             'message': message,
             'userId': userId,
+            'emergencyId': emergencyId ?? '',
           });
 
       if (result != null) {

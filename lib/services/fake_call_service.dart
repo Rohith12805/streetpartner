@@ -64,9 +64,9 @@ class FakeCallService {
       const androidSettings =
           AndroidInitializationSettings('@mipmap/ic_launcher');
       const iosSettings = DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
       );
 
       const initSettings = InitializationSettings(
@@ -178,19 +178,6 @@ class FakeCallService {
   }
 
   Future<bool> requestPermissions() async {
-    try {
-      final androidImpl =
-          _notificationsPlugin.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-
-      if (androidImpl != null) {
-        final notifGranted =
-            await androidImpl.requestNotificationsPermission() ?? false;
-        return notifGranted;
-      }
-    } catch (e) {
-      debugPrint('Error requesting notification permissions: $e');
-    }
     return true;
   }
 

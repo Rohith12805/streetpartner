@@ -207,7 +207,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keepSosReadyInBackgroundViaNot =>
-      'Keep SOS ready in background via notification & shake-to-trigger when outdoors.';
+      'Keep SOS ready in background with shake-to-trigger detection when outdoors.';
 
   @override
   String get quickFeatures => 'Quick Features';

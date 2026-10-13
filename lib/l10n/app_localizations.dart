@@ -481,7 +481,7 @@ abstract class AppLocalizations {
   /// No description provided for @keepSosReadyInBackgroundViaNot.
   ///
   /// In en, this message translates to:
-  /// **'Keep SOS ready in background via notification & shake-to-trigger when outdoors.'**
+  /// **'Keep SOS ready in background with shake-to-trigger detection when outdoors.'**
   String get keepSosReadyInBackgroundViaNot;
 
   /// No description provided for @quickFeatures.

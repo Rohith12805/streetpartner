@@ -21,6 +21,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import android.provider.Telephony
 
 class MainActivity : FlutterActivity() {
 
@@ -63,9 +64,11 @@ class MainActivity : FlutterActivity() {
 
     private final val METHOD_CHANNEL = "com.example.streetpartner/sos_channel"
     private final val EVENT_CHANNEL = "com.example.streetpartner/sos_timer_events"
+    private final val SMS_EVENT_CHANNEL = "com.streetpartner.sms/events"
     private final val PERMISSION_REQUEST_CODE = 1001
 
     private var timerEventSink: EventChannel.EventSink? = null
+    private var smsEventSink: EventChannel.EventSink? = null
     private var ringtonePlayer: Ringtone? = null
     private var methodChannel: MethodChannel? = null
     private var pendingFakeCallData: HashMap<String, Any>? = null
@@ -75,11 +78,32 @@ class MainActivity : FlutterActivity() {
             if (intent?.action == SosForegroundService.ACTION_TIMER_TICK) {
                 val secondsLeft = intent.getIntExtra("secondsLeft", -1)
                 val isRouteDeviation = intent.getBooleanExtra("isRouteDeviation", false)
+                val triggerSource = intent.getStringExtra("triggerSource") ?: "SOS Button"
                 val map = hashMapOf<String, Any>(
                     "secondsLeft" to secondsLeft,
-                    "isRouteDeviation" to isRouteDeviation
+                    "isRouteDeviation" to isRouteDeviation,
+                    "triggerSource" to triggerSource
                 )
                 timerEventSink?.success(map)
+            }
+        }
+    }
+
+    private val smsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+                val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+                if (messages != null && messages.isNotEmpty()) {
+                    val sender = messages[0]?.displayOriginatingAddress ?: ""
+                    val fullBody = StringBuilder()
+                    for (sms in messages) {
+                        if (sms != null) {
+                            fullBody.append(sms.displayMessageBody ?: "")
+                        }
+                    }
+                    val map = hashMapOf("address" to sender, "body" to fullBody.toString())
+                    smsEventSink?.success(map)
+                }
             }
         }
     }
@@ -190,11 +214,36 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    smsEventSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    smsEventSink = null
+                }
+            }
+        )
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    smsEventSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    smsEventSink = null
+                }
+            }
+        )
+
+
         // Register receiver for timer ticks
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(timerReceiver, IntentFilter(SosForegroundService.ACTION_TIMER_TICK), Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(smsReceiver, IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION), Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(timerReceiver, IntentFilter(SosForegroundService.ACTION_TIMER_TICK))
+            registerReceiver(smsReceiver, IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION))
         }
 
         // Setup EventChannel for streaming ticks
@@ -245,12 +294,14 @@ class MainActivity : FlutterActivity() {
                     val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
                     val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
                     val userId = call.argument<String>("userId") ?: "unknown"
+                    val emergencyId = call.argument<String>("emergencyId") ?: ""
                     
                     val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
                         action = SosForegroundService.ACTION_START_FOREGROUND_SERVICE
                         putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
                         putExtra(SosForegroundService.EXTRA_MESSAGE, message)
                         putExtra("EXTRA_USER_ID", userId)
+                        putExtra("EXTRA_EMERGENCY_ID", emergencyId)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(serviceIntent)
@@ -269,11 +320,15 @@ class MainActivity : FlutterActivity() {
                 "triggerSosCountdown" -> {
                     val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
                     val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
+                    val emergencyId = call.argument<String>("emergencyId") ?: ""
+                    val triggerSource = call.argument<String>("triggerSource") ?: "SOS Button"
 
                     val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
                         action = SosForegroundService.ACTION_TRIGGER_SOS
                         putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
                         putExtra(SosForegroundService.EXTRA_MESSAGE, message)
+                        putExtra("EXTRA_EMERGENCY_ID", emergencyId)
+                        putExtra("EXTRA_TRIGGER_SOURCE", triggerSource)
                     }
                     startService(serviceIntent)
                     result.success(true)
@@ -348,12 +403,14 @@ class MainActivity : FlutterActivity() {
 
                 "triggerSosAlert" -> {
                     val userId = call.argument<String>("userId") ?: "unknown"
+                    val emergencyId = call.argument<String>("emergencyId") ?: ""
                     val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
                     val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
 
                     val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
                         action = SosForegroundService.ACTION_EXECUTE_SOS_NOW
                         putExtra("EXTRA_USER_ID", userId)
+                        putExtra("EXTRA_EMERGENCY_ID", emergencyId)
                         putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
                         putExtra(SosForegroundService.EXTRA_MESSAGE, message)
                     }
@@ -375,11 +432,7 @@ class MainActivity : FlutterActivity() {
                     val hasCall = ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
                     val hasLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                     
-                    val hasNotification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-                    } else {
-                        true
-                    }
+                    val hasNotification = true
 
                     val permissionMap = hashMapOf<String, Boolean>(
                         "sms" to hasSms,
@@ -398,10 +451,6 @@ class MainActivity : FlutterActivity() {
                         Manifest.permission.ACCESS_FINE_LOCATION,
                         Manifest.permission.ACCESS_COARSE_LOCATION
                     )
-                    
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-                    }
                     
                     ActivityCompat.requestPermissions(this, permissions.toTypedArray(), PERMISSION_REQUEST_CODE)
                     result.success(true)
@@ -455,5 +504,6 @@ class MainActivity : FlutterActivity() {
         stopRingtoneStatic()
         stopRingtone()
         unregisterReceiver(timerReceiver)
+        unregisterReceiver(smsReceiver)
     }
 }

@@ -61,7 +61,7 @@
   "liveLocationActive": "Live Location Active",
   "yourLocationIsBeingSharedWithE": "Your location is being shared with emergency contacts.",
   "activeProtectionMode": "Active Protection Mode",
-  "keepSosReadyInBackgroundViaNot": "Keep SOS ready in background via notification & shake-to-trigger when outdoors.",
+  "keepSosReadyInBackgroundViaNot": "Keep SOS ready in background with shake-to-trigger detection when outdoors.",
   "quickFeatures": "Quick Features",
   "myLocation": "My Location",
   "live": "LIVE",

@@ -213,7 +213,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get keepSosReadyInBackgroundViaNot =>
-      'வெளியில் இருக்கும்போது அறிவிப்பு மற்றும் குலுக்கல்-தூண்டுதல் மூலம் பின்னணியில் SOS ஐ தயார் நிலையில் வைக்கவும்.';
+      'வெளியில் இருக்கும்போது குலுக்கல்-தூண்டுதல் மூலம் பின்னணியில் SOS ஐ தயார் நிலையில் வைக்கவும்.';
 
   @override
   String get quickFeatures => 'விரைவு அம்சங்கள்';
