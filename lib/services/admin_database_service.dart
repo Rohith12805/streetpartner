@@ -12,6 +12,7 @@ class AdminDatabaseService {
     required String liveLocationLink,
     double? lat,
     double? lng,
+    String triggerSource = 'SOS Button',
   }) async {
     try {
       final firestore = _firestore;
@@ -31,6 +32,7 @@ class AdminDatabaseService {
           'bloodGroup': bloodGroup,
           'mobileNumber': mobileNumber,
           'liveLocationLink': link,
+          'triggerSource': triggerSource,
           'isActive': true,
           'active': true,
         };
@@ -53,9 +55,10 @@ class AdminDatabaseService {
           'bloodGroup': bloodGroup,
           'mobileNumber': mobileNumber,
           'liveLocationLink': link,
+          'triggerSource': triggerSource,
           'timestamp': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
-          'triggeredAt': FieldValue.serverTimestamp(),
+          'triggeredAt': Timestamp.now(),
           'isActive': true,
           'active': true,
         };

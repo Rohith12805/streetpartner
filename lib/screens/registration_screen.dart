@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import 'package:streetpartner/l10n/app_localizations.dart';
 
@@ -118,6 +119,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         'isProfileComplete': true,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('cached_emergency_contacts', validContacts);
+      await prefs.setBool('is_profile_complete_${user.uid}', true);
 
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(

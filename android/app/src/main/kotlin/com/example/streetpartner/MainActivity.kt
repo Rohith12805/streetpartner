@@ -110,18 +110,17 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        turnScreenOnAndKeyguardOff()
         handleFakeCallIntent(intent)
     }
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        turnScreenOnAndKeyguardOff()
         handleFakeCallIntent(intent)
     }
 
     private fun handleFakeCallIntent(intent: Intent?) {
         if (intent != null && intent.getBooleanExtra("SHOW_FAKE_CALL", false)) {
+            turnScreenOnAndKeyguardOff()
             val callId = intent.getStringExtra("CALL_ID") ?: ""
             val callerName = intent.getStringExtra("CALLER_NAME") ?: "Incoming Call"
             val phoneNumber = intent.getStringExtra("PHONE_NUMBER") ?: ""
@@ -132,6 +131,8 @@ class MainActivity : FlutterActivity() {
             )
             pendingFakeCallData = callData
             methodChannel?.invokeMethod("onNativeFakeCallTriggered", callData)
+        } else {
+            disableShowWhenLocked()
         }
     }
     
@@ -151,6 +152,19 @@ class MainActivity : FlutterActivity() {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                     or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
                     or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                    or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    or WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+        )
+    }
+
+    private fun disableShowWhenLocked() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(false)
+            setTurnScreenOn(false)
+        }
+        @Suppress("DEPRECATION")
+        window.clearFlags(
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                     or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                     or WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
@@ -320,6 +334,7 @@ class MainActivity : FlutterActivity() {
                 "triggerSosCountdown" -> {
                     val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
                     val message = call.argument<String>("message") ?: "EMERGENCY SOS: I need immediate help!"
+                    val userId = call.argument<String>("userId") ?: "unknown"
                     val emergencyId = call.argument<String>("emergencyId") ?: ""
                     val triggerSource = call.argument<String>("triggerSource") ?: "SOS Button"
 
@@ -327,6 +342,7 @@ class MainActivity : FlutterActivity() {
                         action = SosForegroundService.ACTION_TRIGGER_SOS
                         putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
                         putExtra(SosForegroundService.EXTRA_MESSAGE, message)
+                        putExtra("EXTRA_USER_ID", userId)
                         putExtra("EXTRA_EMERGENCY_ID", emergencyId)
                         putExtra("EXTRA_TRIGGER_SOURCE", triggerSource)
                     }
@@ -350,18 +366,31 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                "getServiceStatus" -> {
+                    val status = SosForegroundService.readServiceStatus(this)
+                    result.success(status)
+                }
+
                 "startGeofenceMonitoring" -> {
                     val lat = call.argument<Double>("lat") ?: 0.0
                     val lng = call.argument<Double>("lng") ?: 0.0
                     val radius = call.argument<Double>("radius")?.toFloat() ?: 500f
+                    val phoneNumbers = call.argument<List<String>>("phoneNumbers") ?: arrayListOf()
+                    val userId = call.argument<String>("userId") ?: ""
                     
                     val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
                         action = SosForegroundService.ACTION_START_GEOFENCE
                         putExtra("lat", lat)
                         putExtra("lng", lng)
                         putExtra("radius", radius)
+                        putStringArrayListExtra(SosForegroundService.EXTRA_PHONE_NUMBERS, ArrayList(phoneNumbers))
+                        putExtra("EXTRA_USER_ID", userId)
                     }
-                    startService(serviceIntent)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
                     result.success(true)
                 }
 
@@ -464,6 +493,22 @@ class MainActivity : FlutterActivity() {
                 "stopRingtone" -> {
                     stopRingtoneStatic()
                     stopRingtone()
+                    result.success(true)
+                }
+
+                "playAlarmSound" -> {
+                    val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
+                        action = SosForegroundService.ACTION_PLAY_ALARM
+                    }
+                    startService(serviceIntent)
+                    result.success(true)
+                }
+
+                "stopAlarmSound" -> {
+                    val serviceIntent = Intent(this, SosForegroundService::class.java).apply {
+                        action = SosForegroundService.ACTION_STOP_ALARM
+                    }
+                    startService(serviceIntent)
                     result.success(true)
                 }
 

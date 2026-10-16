@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
 
@@ -44,25 +45,15 @@ class SosService {
 
   static Future<void> playSiren() async {
     try {
-      await _audioPlayer.setAudioContext(AudioContext(
-        android: AudioContextAndroid(
-          isSpeakerphoneOn: true,
-          stayAwake: true,
-          contentType: AndroidContentType.sonification,
-          usageType: AndroidUsageType.alarm,
-          audioFocus: AndroidAudioFocus.gainTransient,
-        ),
-      ));
-      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      await _audioPlayer.play(AssetSource('audio/siren.mp3'));
-    } catch (e, stacktrace) {
-      print('AudioPlayer Error: $e');
-      print(stacktrace);
+      await _channel.invokeMethod('playAlarmSound');
+    } catch (e) {
+      debugPrint('Error playing native background siren: $e');
     }
   }
 
   static Future<void> stopSiren() async {
     try {
+      await _channel.invokeMethod('stopAlarmSound');
       await _audioPlayer.stop();
     } catch (_) {}
   }
@@ -95,6 +86,7 @@ class SosService {
   static Future<void> triggerSosCountdown({
     required List<String> phoneNumbers,
     required String message,
+    String? userId,
     String? emergencyId,
     String triggerSource = 'SOS Button',
   }) async {
@@ -102,6 +94,7 @@ class SosService {
       await _channel.invokeMethod('triggerSosCountdown', {
         'phoneNumbers': phoneNumbers,
         'message': message,
+        'userId': userId ?? 'unknown',
         'emergencyId': emergencyId ?? '',
         'triggerSource': triggerSource,
       });
@@ -123,6 +116,23 @@ class SosService {
     } catch (_) {}
   }
 
+  /// Queries the real-time background status of the native SOS service
+  static Future<Map<String, dynamic>> getServiceStatus() async {
+    try {
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('getServiceStatus');
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {
+      'isLiveLocationActive': false,
+      'isCountingDown': false,
+      'secondsLeft': -1,
+      'isRouteDeviation': false,
+      'triggerSource': 'SOS Button',
+    };
+  }
+
   /// Gets a stream of timer ticks from the native foreground service.
   /// Stream of timer ticks during an active SOS countdown
   static Stream<Map<dynamic, dynamic>> get timerTickStream {
@@ -132,7 +142,7 @@ class SosService {
   /// Triggers an emergency SOS alert by making native platform calls for
   /// phone call, SMS dispatch, location fetch, and haptic vibration feedback.
   static Future<SosResult> triggerSosAlert({
-    List<String> phoneNumbers = const ['112', '+18005550199'],
+    List<String> phoneNumbers = const [],
     String message = 'EMERGENCY SOS: I need immediate assistance!',
     String userId = '',
     String? emergencyId,
@@ -221,12 +231,20 @@ class SosService {
     }
   }
 
-  static Future<void> startGeofenceMonitoring(double lat, double lng, double radius) async {
+  static Future<void> startGeofenceMonitoring(
+    double lat,
+    double lng,
+    double radius, {
+    List<String>? phoneNumbers,
+    String? userId,
+  }) async {
     try {
       await _channel.invokeMethod('startGeofenceMonitoring', {
         'lat': lat,
         'lng': lng,
         'radius': radius,
+        'phoneNumbers': phoneNumbers ?? [],
+        'userId': userId ?? '',
       });
     } catch (_) {}
   }

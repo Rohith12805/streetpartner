@@ -170,7 +170,7 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get emergencyDispatchedLiveLocatio =>
-      'ðŸš¨ ఎమర్జెన్సీ పంపబడింది! ప్రత్యక్ష స్థానం సక్రియంగా ఉంది.';
+      'ఎమర్జెన్సీ పంపబడింది! ప్రత్యక్ష స్థానం సక్రియంగా ఉంది.';
 
   @override
   String get liveLocationTrackingStopped =>

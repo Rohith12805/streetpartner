@@ -23,17 +23,24 @@
         <service 
             android:name=".SosForegroundService"
             android:foregroundServiceType="location"
+            android:stopWithTask="false"
             android:exported="false" />
         <receiver 
             android:name=".FakeCallAlarmReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".SosRestartReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="com.example.streetpartner.RESTART_SOS_SERVICE" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"

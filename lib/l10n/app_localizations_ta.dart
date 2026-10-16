@@ -171,7 +171,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get emergencyDispatchedLiveLocatio =>
-      'ðŸš¨ அவசரநிலை அனுப்பப்பட்டது! நேரலை இருப்பிடம் செயலில் உள்ளது.';
+      'அவசரநிலை அனுப்பப்பட்டது! நேரலை இருப்பிடம் செயலில் உள்ளது.';
 
   @override
   String get liveLocationTrackingStopped =>

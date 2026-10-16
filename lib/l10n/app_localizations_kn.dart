@@ -171,7 +171,7 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get emergencyDispatchedLiveLocatio =>
-      'ðŸš¨ ತುರ್ತು ರವಾನೆಯಾಗಿದೆ! ಲೈವ್ ಸ್ಥಳ ಸಕ್ರಿಯವಾಗಿದೆ.';
+      'ತುರ್ತು ರವಾನೆಯಾಗಿದೆ! ಲೈವ್ ಸ್ಥಳ ಸಕ್ರಿಯವಾಗಿದೆ.';
 
   @override
   String get liveLocationTrackingStopped =>

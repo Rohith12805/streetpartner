@@ -167,7 +167,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get emergencyDispatchedLiveLocatio =>
-      'ðŸš¨ आपातकाल भेज दिया गया! लाइव स्थान सक्रिय.';
+      'आपातकाल भेज दिया गया! लाइव स्थान सक्रिय.';
 
   @override
   String get liveLocationTrackingStopped => 'लाइव लोकेशन ट्रैकिंग बंद हो गई.';

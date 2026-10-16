@@ -171,7 +171,7 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get emergencyDispatchedLiveLocatio =>
-      'ðŸš¨ അടിയന്തരാവസ്ഥ അയച്ചു! തത്സമയ ലൊക്കേഷൻ സജീവമാണ്.';
+      'അടിയന്തരാവസ്ഥ അയച്ചു! തത്സമയ ലൊക്കേഷൻ സജീവമാണ്.';
 
   @override
   String get liveLocationTrackingStopped =>

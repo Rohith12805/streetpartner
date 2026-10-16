@@ -206,6 +206,10 @@ class AuthWrapper extends StatelessWidget {
                   return const HomeDashboardScreen();
                 }
               }
+              if (docSnapshot.hasError) {
+                // If there's a temporary network or Firestore error, don't kick logged-in user to registration
+                return const HomeDashboardScreen();
+              }
               return const RegistrationScreen();
             },
           );

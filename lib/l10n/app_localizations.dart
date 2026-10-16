@@ -403,7 +403,7 @@ abstract class AppLocalizations {
   /// No description provided for @emergencyDispatchedLiveLocatio.
   ///
   /// In en, this message translates to:
-  /// **'ðŸš¨ Emergency dispatched! Live location active.'**
+  /// **'Emergency dispatched! Live location active.'**
   String get emergencyDispatchedLiveLocatio;
 
   /// No description provided for @liveLocationTrackingStopped.

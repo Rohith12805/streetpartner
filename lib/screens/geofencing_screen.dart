@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/sos_service.dart';
 import 'package:streetpartner/l10n/app_localizations.dart';
@@ -29,10 +32,73 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   final List<double> _presetKmValues = [5.0, 10.0, 20.0, 25.0, 50.0, 100.0];
   StreamSubscription<Position>? _positionStream;
 
+  List<String> _targetNumbers = [];
+  String _userId = 'unknown';
+
   @override
   void initState() {
     super.initState();
+    _loadUserEmergencyContacts();
+    _restorePersistedGeofence();
     _startLiveLocationStream();
+  }
+
+  Future<void> _loadUserEmergencyContacts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getStringList('cached_emergency_contacts') ?? [];
+      const emergencyServiceNumbers = {'112', '911', '100', '101', '108'};
+      if (cached.isNotEmpty) {
+        _targetNumbers = cached.where((n) => !emergencyServiceNumbers.contains(n.trim())).toList();
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        _userId = user.uid;
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          final contacts = (data['emergencyContacts'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty && !emergencyServiceNumbers.contains(e))
+              .toList() ?? [];
+          if (contacts.isNotEmpty && mounted) {
+            setState(() {
+              _targetNumbers = contacts;
+            });
+            await prefs.setStringList('cached_emergency_contacts', contacts);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading emergency contacts in geofencing: $e');
+    }
+  }
+
+  Future<void> _restorePersistedGeofence() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bool isActive = prefs.getBool('geofence_active') ?? false;
+      if (isActive) {
+        final double? lat = prefs.getDouble('geofence_lat');
+        final double? lng = prefs.getDouble('geofence_lng');
+        final double? radius = prefs.getDouble('geofence_radius');
+        if (lat != null && lng != null && radius != null && mounted) {
+          setState(() {
+            _fixedCenter = LatLng(lat, lng);
+            _radiusInMeters = radius;
+            _isGuardActive = true;
+            _hasInitialCenterSet = true;
+            _customRadiusCtrl.text = (radius / 1000.0).toStringAsFixed((radius / 1000.0) % 1 == 0 ? 0 : 1);
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _fitMapToRadius(_radiusInMeters, target: _fixedCenter);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error restoring persisted geofence: $e');
+    }
   }
 
   @override
@@ -90,8 +156,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             if (dist > _radiusInMeters) {
               _isSosTriggered = true;
               SosService.triggerSosCountdown(
-                phoneNumbers: ['9381117370'],
+                phoneNumbers: _targetNumbers,
                 message: 'EMERGENCY: Geofence Safe Zone Breached! Location: https://maps.google.com/?q=${newLoc.latitude},${newLoc.longitude}',
+                userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
                 triggerSource: 'Geo-fencing',
               );
               SosService.playSiren();
@@ -470,13 +537,17 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     height: 46,
                     child: _isGuardActive
                         ? FilledButton.icon(
-                            onPressed: () {
+                            onPressed: () async {
                               SosService.stopMonitoring();
                               SosService.stopSosCountdown();
-                              setState(() {
-                                _isGuardActive = false;
-                                _isSosTriggered = false;
-                              });
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('geofence_active', false);
+                              if (mounted) {
+                                setState(() {
+                                  _isGuardActive = false;
+                                  _isSosTriggered = false;
+                                });
+                              }
                             },
                             icon: const Icon(Icons.stop_rounded),
                             label: Text(AppLocalizations.of(context)?.disableGuard ?? 'DISABLE GUARD'),
@@ -487,13 +558,25 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             ),
                           )
                         : FilledButton.icon(
-                            onPressed: () {
+                            onPressed: () async {
                               setState(() {
                                 _fixedCenter = _liveLocation; // Lock center to current live GPS!
                                 _isGuardActive = true;
                                 _isSosTriggered = false;
                               });
-                              SosService.startGeofenceMonitoring(_fixedCenter.latitude, _fixedCenter.longitude, _radiusInMeters);
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('geofence_active', true);
+                              await prefs.setDouble('geofence_lat', _fixedCenter.latitude);
+                              await prefs.setDouble('geofence_lng', _fixedCenter.longitude);
+                              await prefs.setDouble('geofence_radius', _radiusInMeters);
+
+                              SosService.startGeofenceMonitoring(
+                                _fixedCenter.latitude,
+                                _fixedCenter.longitude,
+                                _radiusInMeters,
+                                phoneNumbers: _targetNumbers,
+                                userId: _userId,
+                              );
                               _fitMapToRadius(_radiusInMeters, target: _fixedCenter);
                             },
                             icon: const Icon(Icons.shield_rounded),

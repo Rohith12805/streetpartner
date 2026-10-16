@@ -24,7 +24,7 @@ class HomeDashboardScreen extends StatefulWidget {
   State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
 }
 
-class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
+class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsBindingObserver {
   bool _isModalOpen = false;
   int _secondsLeft = 10;
   bool _isLiveLocationActive = false;
@@ -34,11 +34,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   String? _currentPlaceName;
   String? _currentCoordsText;
   Position? _currentPosition;
-    bool _isLoadingLocation = true;
+  bool _isLoadingLocation = true;
   StreamSubscription<Position>? _positionStreamSub;
   DateTime? _lastReverseGeocodeTime;
   
-  List<String> _targetNumbers = ['112', '911'];
+  List<String> _targetNumbers = [];
   String _userName = 'Unknown User';
   String _userBloodGroup = 'Unknown';
   String _userMobileNumber = 'Unknown';
@@ -49,6 +49,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Sync state with native background service immediately on startup
+    _syncWithServiceState();
+
     // Auto-request Android OS permissions (CALL_PHONE, SEND_SMS, GPS Location, Notifications)
     SosService.requestPermissions().then((_) {
       _initRealtimeLocation();
@@ -71,6 +76,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       }
 
       if (tick > 0) {
+        // If live location is already active from a previous dispatch, ignore duplicate countdowns
+        if (_isLiveLocationActive) return;
+
         _secondsLeft = tick;
         if (!_isModalOpen) {
           if (!_manualAlertTriggered) { SosService.playSiren(); }
@@ -86,7 +94,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           _isModalOpen = false;
           Navigator.of(context, rootNavigator: true).pop();
         }
-        _onSosDispatched();
+        if (!_isLiveLocationActive) {
+          _onSosDispatched();
+        }
       } else if (tick == -1) {
         _manualAlertTriggered = false;
         // Countdown cancelled
@@ -97,7 +107,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context)?.sosAlertAlarmSirenCancelled ?? 'SOS Alert & Alarm Siren cancelled.'),
-              duration: Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -106,7 +116,88 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncWithServiceState();
+    }
+  }
+
+  Future<void> _syncWithServiceState() async {
+    try {
+      final status = await SosService.getServiceStatus();
+      if (!mounted) return;
+
+      bool isLiveActive = status['isLiveLocationActive'] == true;
+      final bool isCountingDown = status['isCountingDown'] == true;
+      final int secondsLeft = (status['secondsLeft'] as num?)?.toInt() ?? -1;
+      final bool isRouteDeviation = status['isRouteDeviation'] == true;
+      final String? triggerSource = status['triggerSource'] as String?;
+
+      if (triggerSource != null && triggerSource.isNotEmpty) {
+        _activeTriggerSource = triggerSource;
+      }
+
+      // Check Firestore active emergency if native state did not report liveActive
+      if (!isLiveActive && !isCountingDown) {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          try {
+            final activeDocs = await FirebaseFirestore.instance
+                .collection('emergencies')
+                .where('userId', isEqualTo: user.uid)
+                .where('isActive', isEqualTo: true)
+                .limit(1)
+                .get();
+            if (activeDocs.docs.isNotEmpty) {
+              isLiveActive = true;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!mounted) return;
+
+      if (isLiveActive) {
+        // Native background service already dispatched the emergency
+        SosService.stopSiren();
+        if (_isModalOpen) {
+          _isModalOpen = false;
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        if (!_isLiveLocationActive) {
+          setState(() {
+            _isLiveLocationActive = true;
+          });
+        }
+      } else if (isCountingDown && secondsLeft > 0) {
+        _secondsLeft = secondsLeft;
+        if (!_isModalOpen) {
+          if (!_manualAlertTriggered) {
+            SosService.playSiren();
+          }
+          _showSosCountdownDialog(isRouteDeviation);
+        } else {
+          _modalSetState?.call(() {});
+        }
+      } else if (!isCountingDown && !isLiveActive) {
+        if (_isModalOpen) {
+          _isModalOpen = false;
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        if (_isLiveLocationActive) {
+          setState(() {
+            _isLiveLocationActive = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error syncing with native service state: $e');
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timerSubscription?.cancel();
     _positionStreamSub?.cancel();
     super.dispose();
@@ -115,7 +206,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _loadProtectionState() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isBackgroundProtectionEnabled = prefs.getBool('background_protection') ?? false;
+      _isBackgroundProtectionEnabled = prefs.getBool('background_protection') ?? true;
     });
     if (_isBackgroundProtectionEnabled) {
       _initializeSosService();
@@ -273,6 +364,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   Future<void> _fetchEmergencyContacts() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      // Load cached contacts immediately so we never send SMS to emergency services
+      final cachedContacts = prefs.getStringList('cached_emergency_contacts') ?? [];
+      const emergencyServiceNumbers = {'112', '911', '100', '101', '108'};
+      if (cachedContacts.isNotEmpty) {
+        _targetNumbers = cachedContacts.where((n) => !emergencyServiceNumbers.contains(n.trim())).toList();
+      }
+
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         final doc = await FirebaseFirestore.instance
@@ -283,17 +382,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           final data = doc.data() as Map<String, dynamic>;
           final contacts =
               (data['emergencyContacts'] as List<dynamic>?)
-                  ?.map((e) => e.toString())
+                  ?.map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty && !emergencyServiceNumbers.contains(e))
                   .toList() ??
               [];
           if (contacts.isNotEmpty) {
             _targetNumbers = contacts;
+            await prefs.setStringList('cached_emergency_contacts', contacts);
           }
           if (mounted) {
             setState(() {
               _userName = data['fullName'] ?? user.displayName ?? 'Unknown User';
-            _userBloodGroup = data['bloodGroup'] ?? 'Unknown';
-            _userMobileNumber = data['phoneNumber'] ?? user.phoneNumber ?? 'Unknown';
+              _userBloodGroup = data['bloodGroup'] ?? 'Unknown';
+              _userMobileNumber = data['phoneNumber'] ?? user.phoneNumber ?? 'Unknown';
             });
           }
 
@@ -309,7 +410,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Future<void> _initializeSosService() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+    final user = FirebaseAuth.instance.currentUser;
+    final userId = user?.uid ?? 'unknown';
+
+    if (_targetNumbers.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedContacts = prefs.getStringList('cached_emergency_contacts') ?? [];
+      const emergencyServiceNumbers = {'112', '911', '100', '101', '108'};
+      _targetNumbers = cachedContacts.where((n) => !emergencyServiceNumbers.contains(n.trim())).toList();
+    }
+
+    if (user != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_id', user.uid);
+    }
+
     SosService.startSosService(
       phoneNumbers: _targetNumbers,
       message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
@@ -317,7 +432,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
-  void _onSosPressed() {
+  void _onSosPressed() async {
     if (_isLiveLocationActive) {
       showDialog(
         context: context,
@@ -343,10 +458,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
     
     _manualAlertTriggered = true;
+    final user = FirebaseAuth.instance.currentUser;
+    if (_targetNumbers.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedContacts = prefs.getStringList('cached_emergency_contacts') ?? [];
+      const emergencyServiceNumbers = {'112', '911', '100', '101', '108'};
+      _targetNumbers = cachedContacts.where((n) => !emergencyServiceNumbers.contains(n.trim())).toList();
+    }
+
+    if (user != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_id', user.uid);
+    }
+
     // Manually trigger the native foreground countdown
     SosService.triggerSosCountdown(
       phoneNumbers: _targetNumbers,
       message: 'EMERGENCY SOS: $_userName needs immediate assistance!',
+      userId: user?.uid ?? 'unknown',
     );
   }
 
@@ -507,6 +636,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       liveLocationLink: '',
                       lat: _currentPosition?.latitude,
                       lng: _currentPosition?.longitude,
+                      triggerSource: _activeTriggerSource,
                     );
                     final link = 'https://streetpartner.web.app/?session=${emergencyId ?? userId}';
                     SosService.triggerSosAlert(
@@ -599,6 +729,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         liveLocationLink: '',
         lat: _currentPosition?.latitude,
         lng: _currentPosition?.longitude,
+        triggerSource: _activeTriggerSource,
       );
     }
 
@@ -613,7 +744,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               const Icon(Icons.shield, color: Colors.white),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(AppLocalizations.of(context)?.emergencyDispatchedLiveLocatio ?? 'ðŸš¨ Emergency dispatched! Live location active.',
+                child: Text(AppLocalizations.of(context)?.emergencyDispatchedLiveLocatio ?? 'Emergency dispatched! Live location active.',
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w500,

@@ -166,7 +166,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emergencyDispatchedLiveLocatio =>
-      'ðŸš¨ Emergency dispatched! Live location active.';
+      'Emergency dispatched! Live location active.';
 
   @override
   String get liveLocationTrackingStopped => 'Live location tracking stopped.';
