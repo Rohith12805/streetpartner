@@ -9,14 +9,17 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sos_button.dart';
+import '../widgets/ai_assistant_fab.dart';
+import 'features_screen.dart';
+import 'emergency_numbers_screen.dart';
 import '../services/sos_service.dart';
 import '../services/admin_database_service.dart';
 import '../services/emergency_services_service.dart';
 import 'package:streetpartner/main.dart';
 import 'package:streetpartner/l10n/app_localizations.dart';
 
-/// Home Dashboard â€” Figma node 1:149
-/// AppBar with logo + profile avatar, large SOS button centered, 2x2 feature grid
+/// Redesigned Home Dashboard with 3-destination Bottom Navigation,
+/// dedicated SOS & Active Protection Mode, and modern AI Assistant.
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
 
@@ -25,6 +28,7 @@ class HomeDashboardScreen extends StatefulWidget {
 }
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsBindingObserver {
+  int _selectedTabIndex = 0;
   bool _isModalOpen = false;
   int _secondsLeft = 10;
   bool _isLiveLocationActive = false;
@@ -682,7 +686,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
       if (destLat == null || destLng == null) throw Exception('No destination saved.');
 
       // Get current location
-      Position pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
       
       // Fetch from OSRM
       final url = 'http://router.project-osrm.org/route/v1/driving/${pos.longitude},${pos.latitude};$destLng,$destLat?geometries=geojson';
@@ -786,55 +792,32 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: _buildAppBar(context),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: AiAssistantFab(
         onPressed: () {
           Navigator.pushNamed(context, '/ai-assistant');
         },
-        backgroundColor: Colors.blue[800],
-        elevation: 6,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 28),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          children: [
-            if (_isLiveLocationActive) _buildLiveLocationBanner(),
-
-            // â”€â”€ Live Location & Geofencing Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            _buildLiveLocationCard(context),
-
-            // â”€â”€ SOS Button Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            _buildSosSection(context),
-
-            // â”€â”€ Background Protection Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            _buildProtectionToggle(),
-
-            const SizedBox(height: 24),
-
-            // â”€â”€ Quick Features Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            _buildFeatureGrid(context),
-
-            const SizedBox(height: 24),
-
-            // Bottom Banner
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                'assets/images/stay_safe_banner.jpg',
-                width: double.infinity,
-                fit: BoxFit.fitWidth,
-              ),
-            ),
-
-            const SizedBox(height: 80),
-          ],
-        ),
+      body: IndexedStack(
+        index: _selectedTabIndex,
+        children: [
+          _buildHomeTab(context),
+          const FeaturesScreen(),
+          const EmergencyNumbersScreen(),
+        ],
       ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    String titleText = loc?.home ?? 'Home';
+    if (_selectedTabIndex == 1) {
+      titleText = loc?.safetyFeatures ?? 'Safety Features';
+    } else if (_selectedTabIndex == 2) {
+      titleText = loc?.emergencyNumbers ?? 'Emergency Numbers';
+    }
+
     return AppBar(
       automaticallyImplyLeading: false,
       backgroundColor: const Color(0xCCF8F9FA),
@@ -866,10 +849,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(AppLocalizations.of(context)?.homeDashboard ?? 'Home Dashboard',
+            child: Text(
+              titleText,
               style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
                 color: AppTheme.onBackground,
               ),
               maxLines: 1,
@@ -883,7 +867,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
           valueListenable: appLocale,
           builder: (context, currentLocale, child) {
             return PopupMenuButton<Locale>(
-              icon: const Icon(Icons.translate, size: 28, color: Colors.black87),
+              icon: const Icon(Icons.translate, size: 26, color: AppTheme.onBackground),
               onSelected: (Locale locale) {
                 appLocale.value = locale;
               },
@@ -895,7 +879,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                     value: Locale(code),
                     child: Row(
                       children: [
-                        Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? AppTheme.primary : Colors.black87)),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppTheme.primary : Colors.black87,
+                          ),
+                        ),
                         if (isSelected) const Spacer(),
                         if (isSelected) const Icon(Icons.check, color: AppTheme.primary, size: 20),
                       ],
@@ -914,20 +904,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
             );
           },
         ),
-        // Profile avatar button (Figma node 1:229)
+        // Profile avatar button
         GestureDetector(
           onTap: () async {
             await Navigator.pushNamed(context, '/profile');
-            // Check if we logged out and the screen was disposed
             if (!mounted) return;
-            // Refresh contacts in case they were updated
             await _fetchEmergencyContacts();
           },
           child: Container(
-            margin: const EdgeInsets.only(right: 16),
+            margin: const EdgeInsets.only(right: 16, left: 4),
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: AppTheme.primaryLight,
             ),
@@ -942,20 +930,114 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
     );
   }
 
-  Widget _buildLiveLocationCard(BuildContext context) {
+  Widget _buildHomeTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        children: [
+          if (_isLiveLocationActive) _buildLiveLocationBanner(),
+
+          // 1. Compact Location Status Card
+          _buildLocationCard(context),
+
+          // 2. Central SOS Section (Button & Instructions)
+          _buildSosSection(context),
+
+          const SizedBox(height: 12),
+
+          // 3. Active Protection Mode Toggle Card
+          _buildProtectionToggle(context),
+
+          const SizedBox(height: 16),
+
+          // 4. Stay Safe, Stay Strong Banner (Home Dashboard ONLY)
+          _buildStaySafeBanner(),
+
+          const SizedBox(height: 100), // Padding above floating bottom nav & FAB
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaySafeBanner() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
-        border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.2)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.asset(
+          'assets/images/stay_safe_banner.png',
+          width: double.infinity,
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationCard(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final bool isGpsOff = _currentPlaceName == 'GPS Turned Off';
+    final bool isPermNeeded = _currentPlaceName == 'Location Permission Required';
+    final bool isActive = !isGpsOff && !isPermNeeded && !_isLoadingLocation;
+
+    String statusTitle;
+    String statusSubtitle;
+    Color statusBadgeColor;
+    String statusBadgeText;
+    IconData gpsIcon;
+
+    if (isGpsOff) {
+      statusTitle = loc?.gpsTurnedOff ?? 'GPS Turned Off';
+      statusSubtitle = loc?.enableDeviceLocation ?? 'Enable device location to share your position';
+      statusBadgeColor = Colors.orange.shade700;
+      statusBadgeText = loc?.disabled ?? 'Disabled';
+      gpsIcon = Icons.location_off_rounded;
+    } else if (isPermNeeded) {
+      statusTitle = loc?.locationPermissionRequired ?? 'Location Permission Required';
+      statusSubtitle = loc?.tapToGrantGpsPermission ?? 'Tap to grant permission for safety features';
+      statusBadgeColor = Colors.orange.shade700;
+      statusBadgeText = loc?.actionNeeded ?? 'Action Needed';
+      gpsIcon = Icons.location_disabled_rounded;
+    } else if (_isLoadingLocation) {
+      statusTitle = loc?.locatingViaGps ?? 'Locating via GPS...';
+      statusSubtitle = loc?.fetchingHighAccuracyCoordinates ?? 'Fetching high-accuracy coordinates';
+      statusBadgeColor = AppTheme.primary;
+      statusBadgeText = 'Locating';
+      gpsIcon = Icons.my_location_rounded;
+    } else {
+      statusTitle = loc?.locationEnabled ?? 'Location Enabled';
+      statusSubtitle = _currentPlaceName ?? _currentCoordsText ?? 'Coordinates active';
+      statusBadgeColor = const Color(0xFF137333);
+      statusBadgeText = loc?.active ?? 'Active';
+      gpsIcon = Icons.my_location_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isActive 
+              ? AppTheme.primaryLight.withValues(alpha: 0.2)
+              : Colors.orange.shade200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -963,28 +1045,28 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            if (_currentPlaceName == 'GPS Turned Off') {
+            if (isGpsOff) {
               Geolocator.openLocationSettings();
-            } else if (_currentPlaceName == 'Location Permission Required') {
+            } else if (isPermNeeded) {
               SosService.requestPermissions().then((_) => _initRealtimeLocation());
             } else {
               Navigator.pushNamed(context, '/safety-index');
             }
           },
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withValues(alpha: 0.12),
+                    color: (isActive ? AppTheme.primary : statusBadgeColor).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.my_location_rounded,
-                    color: AppTheme.primary,
-                    size: 26,
+                  child: Icon(
+                    gpsIcon,
+                    color: isActive ? AppTheme.primary : statusBadgeColor,
+                    size: 24,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -995,57 +1077,54 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                       Row(
                         children: [
                           Expanded(
-                            child: Text(AppLocalizations.of(context)?.liveLocationSafetyIndex ?? 'LIVE LOCATION & SAFETY INDEX',
+                            child: Text(
+                              statusTitle,
                               style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.primary,
-                                letterSpacing: 0.5,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.onBackground,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 6),
                           Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusBadgeColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(AppLocalizations.of(context)?.active ?? 'Active',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: statusBadgeColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  statusBadgeText,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: statusBadgeColor,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
-                        _isLoadingLocation
-                            ? 'Fetching current location...'
-                            : (_currentPlaceName ?? 'Current Location'),
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.onBackground,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _isLoadingLocation
-                            ? 'Locating via GPS...'
-                            : (_currentCoordsText ?? 'Tap to configure Geofence & Route Guard'),
+                        statusSubtitle,
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: AppTheme.onSurfaceLight,
+                          color: AppTheme.onSurfaceMid,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1054,10 +1133,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
-                  color: AppTheme.onSurfaceLight,
-                  size: 24,
+                  color: AppTheme.outline.withValues(alpha: 0.7),
+                  size: 22,
                 ),
               ],
             ),
@@ -1074,7 +1153,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.sosRedContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.sosRed),
       ),
       child: Column(
@@ -1084,7 +1163,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
               const Icon(Icons.location_on, color: AppTheme.sosRed),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(AppLocalizations.of(context)?.liveLocationActive ?? 'Live Location Active',
+                child: Text(
+                  AppLocalizations.of(context)?.liveLocationActive ?? 'Live Location Active',
                   style: GoogleFonts.inter(
                     color: AppTheme.sosRed,
                     fontWeight: FontWeight.bold,
@@ -1095,33 +1175,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
             ],
           ),
           const SizedBox(height: 8),
-          Text(AppLocalizations.of(context)?.yourLocationIsBeingSharedWithE ?? 'Your location is being shared with emergency contacts.',
+          Text(
+            AppLocalizations.of(context)?.yourLocationIsBeingSharedWithE ??
+                'Your location is being shared with emergency contacts.',
             style: GoogleFonts.inter(
               color: AppTheme.onSurfaceMid,
               fontSize: 14,
             ),
           ),
-
         ],
       ),
     );
   }
 
   Widget _buildSosSection(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 48),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
         children: [
-          const SizedBox(height: 16),
-          // SOS Button with pulse animation and active/loading state
+          // Centered SOS button with shield background frame
           Stack(
             alignment: Alignment.center,
             children: [
               Image.asset(
                 'assets/images/sos_shield.png',
-                width: 320,
-                height: 320,
+                width: 250,
+                height: 250,
                 fit: BoxFit.contain,
               ),
               SosButton(
@@ -1131,21 +1213,36 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          // Description text (Figma node 1:164)
+          const SizedBox(height: 18),
+          // Concise Instructions & Supporting text
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              _isLiveLocationActive 
-                ? '🚨 SOS ALERT ACTIVE\nPress again to cancel or stop sharing location.' 
-                : AppLocalizations.of(context)?.sosTriggerDesc ?? 'Press to trigger a 10-second emergency countdown.\nAlerts trusted contacts & sounds a siren.',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: AppTheme.onSurfaceMid,
-                fontWeight: FontWeight.normal,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                Text(
+                  _isLiveLocationActive
+                      ? (loc?.sosAlertActive ?? '🚨 SOS ALERT ACTIVE')
+                      : (loc?.pressToTriggerCountdown ?? 'Press to trigger a 10-second emergency countdown.'),
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: _isLiveLocationActive ? AppTheme.sosRed : AppTheme.onBackground,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isLiveLocationActive
+                      ? (loc?.pressAgainToCancelOrStop ?? 'Press again to cancel or stop sharing location.')
+                      : (loc?.alertsTrustedContactsAndSiren ?? 'Alerts trusted contacts and sounds a siren.'),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppTheme.onSurfaceMid,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
         ],
@@ -1153,200 +1250,192 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
     );
   }
 
-  Widget _buildProtectionToggle() {
+  Widget _buildProtectionToggle(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isBackgroundProtectionEnabled
+              ? AppTheme.primaryLight.withValues(alpha: 0.3)
+              : AppTheme.divider,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: SwitchListTile(
-        title: Text(AppLocalizations.of(context)?.activeProtectionMode ?? 'Active Protection Mode',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-            color: AppTheme.onBackground,
-          ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _isBackgroundProtectionEnabled
+                    ? const Color(0xFFE8F0FE)
+                    : const Color(0xFFF1F3F4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isBackgroundProtectionEnabled
+                    ? Icons.shield_rounded
+                    : Icons.shield_outlined,
+                color: _isBackgroundProtectionEnabled
+                    ? AppTheme.primary
+                    : AppTheme.outline,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    loc?.activeProtectionMode ?? 'Active Protection Mode',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.onBackground,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    loc?.keepSosReadyInBackground ?? 'Keep SOS ready in the background.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: AppTheme.onSurfaceMid,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _isBackgroundProtectionEnabled,
+              onChanged: _toggleProtection,
+              activeThumbColor: Colors.white,
+              activeTrackColor: AppTheme.primary,
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: Colors.grey.shade300,
+            ),
+          ],
         ),
-        subtitle: Text(AppLocalizations.of(context)?.keepSosReadyInBackgroundViaNot ?? 'Keep SOS ready in background with shake-to-trigger detection when outdoors.',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: AppTheme.onSurfaceMid,
-            height: 1.4,
-          ),
-        ),
-        value: _isBackgroundProtectionEnabled,
-        activeThumbColor: AppTheme.primary,
-        onChanged: _toggleProtection,
-        secondary: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _isBackgroundProtectionEnabled 
-                ? AppTheme.primaryLight.withValues(alpha: 0.2) 
-                : Colors.grey.shade100,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            _isBackgroundProtectionEnabled ? Icons.shield_rounded : Icons.shield_outlined,
-            color: _isBackgroundProtectionEnabled ? AppTheme.primary : Colors.grey,
-            size: 22,
-          ),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     );
   }
 
-  Widget _buildFeatureGrid(BuildContext context) {
-    // 2x2 grid data (Figma nodes 1:171, 1:181, 1:191, 1:200)
-    final features = [
-      _FeatureData(
-        icon: Icons.my_location_rounded,
-        iconBg: const Color(0xFF2A73E1),
-        iconColor: Colors.white,
-        title: AppLocalizations.of(context)?.geoFencingTitle ?? 'Geo-Fencing',
-        description: 'Safe perimeter\ncircular zone.',
-        route: '/geofencing',
+  Widget _buildBottomNavigationBar() {
+    final loc = AppLocalizations.of(context);
+    final items = [
+      _BottomNavItem(
+        label: loc?.home ?? 'Home',
+        activeIcon: Icons.home_rounded,
+        inactiveIcon: Icons.home_outlined,
       ),
-      _FeatureData(
-        icon: Icons.navigation_rounded,
-        iconBg: const Color(0xFF10B981),
-        iconColor: Colors.white,
-        title: 'Navigation',
-        description: 'Safe routes &\ndirections.',
-        route: '/navigation',
+      _BottomNavItem(
+        label: loc?.features ?? 'Features',
+        activeIcon: Icons.grid_view_rounded,
+        inactiveIcon: Icons.grid_view_outlined,
       ),
-      _FeatureData(
-        icon: Icons.phone_in_talk_rounded,
-        iconBg: const Color(0xFF1A73E8),
-        iconColor: Colors.white,
-        title: AppLocalizations.of(context)?.fakeCallFeature ?? 'Fake Call',
-        description: AppLocalizations.of(context)?.fakeCallFeatureDesc ?? 'Schedule a simulated\nincoming call.',
-        route: '/fake-call',
-      ),
-      _FeatureData(
-        icon: Icons.emergency_rounded,
-        iconBg: AppTheme.sosRedContainer,
-        iconColor: AppTheme.sosRed,
-        title: AppLocalizations.of(context)?.emergencyFeature ?? 'Emergency',
-        description: AppLocalizations.of(context)?.emergencyFeatureDesc ?? 'Quick access to\npolice and fire.',
-        route: '/emergency-services',
+      _BottomNavItem(
+        label: loc?.emergency ?? 'Emergency',
+        activeIcon: Icons.phone_in_talk_rounded,
+        inactiveIcon: Icons.phone_in_talk_outlined,
       ),
     ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 16),
-            child: Text(AppLocalizations.of(context)?.quickFeatures ?? 'Quick Features',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.onBackground,
-              ),
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              spreadRadius: 1,
+              offset: const Offset(0, 4),
             ),
+          ],
+          border: Border.all(
+            color: Colors.black.withValues(alpha: 0.05),
+            width: 1,
           ),
-          Column(
-            children: features.map((f) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, f.route);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: f.iconBg,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(f.icon, color: f.iconColor, size: 26),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                f.title,
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.onBackground,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                f.description.replaceAll('\n', ' '),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(items.length, (index) {
+            final item = items[index];
+            final isSelected = _selectedTabIndex == index;
 
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppTheme.onSurfaceMid,
-                                ),
-                              ),
-                            ],
-                          ),
+            return Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (_selectedTabIndex != index) {
+                    setState(() {
+                      _selectedTabIndex = index;
+                    });
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFE8F0FE) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isSelected ? item.activeIcon : item.inactiveIcon,
+                        size: 22,
+                        color: isSelected ? AppTheme.primary : const Color(0xFF727785),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.label,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? AppTheme.primary : const Color(0xFF727785),
                         ),
-                        Icon(Icons.chevron_right_rounded, color: Colors.grey[400]),
-                      ],
-                    ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-        ],
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
 }
 
-class _FeatureData {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final String title;
-  final String description;
-  final String route;
+class _BottomNavItem {
+  final String label;
+  final IconData activeIcon;
+  final IconData inactiveIcon;
 
-  const _FeatureData({
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.title,
-    required this.description,
-    required this.route,
+  const _BottomNavItem({
+    required this.label,
+    required this.activeIcon,
+    required this.inactiveIcon,
   });
 }
-
-
-
-
-
-
 

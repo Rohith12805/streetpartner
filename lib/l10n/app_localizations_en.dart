@@ -461,4 +461,193 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get routeFencingDesc =>
       'Set a safe travel corridor to a destination. Triggers SOS if you deviate from the path.';
+
+  @override
+  String get home => 'Home';
+
+  @override
+  String get features => 'Features';
+
+  @override
+  String get emergency => 'Emergency';
+
+  @override
+  String get locationEnabled => 'Location Enabled';
+
+  @override
+  String get gpsTurnedOff => 'GPS Turned Off';
+
+  @override
+  String get locationPermissionRequired => 'Location Permission Required';
+
+  @override
+  String get enableLocationToShare => 'Enable location to share your position';
+
+  @override
+  String get enableDeviceLocation =>
+      'Enable device location to share your position';
+
+  @override
+  String get tapToGrantGpsPermission =>
+      'Tap to grant permission for safety features';
+
+  @override
+  String get locatingViaGps => 'Locating via GPS...';
+
+  @override
+  String get fetchingHighAccuracyCoordinates =>
+      'Fetching high-accuracy coordinates';
+
+  @override
+  String get actionNeeded => 'Action Needed';
+
+  @override
+  String get disabled => 'Disabled';
+
+  @override
+  String get pressToTriggerCountdown =>
+      'Press to trigger a 10-second emergency countdown.';
+
+  @override
+  String get alertsTrustedContactsAndSiren =>
+      'Alerts trusted contacts and sounds a siren.';
+
+  @override
+  String get sosAlertActive => '🚨 SOS ALERT ACTIVE';
+
+  @override
+  String get pressAgainToCancelOrStop =>
+      'Press again to cancel or stop sharing location.';
+
+  @override
+  String get keepSosReadyInBackground => 'Keep SOS ready in the background.';
+
+  @override
+  String get staySafeStayStrong => 'Stay Safe, Stay Strong';
+
+  @override
+  String get yourSafetyMatters =>
+      'Your safety matters. We\'re with you always.';
+
+  @override
+  String get safetyFeatures => 'Safety Features';
+
+  @override
+  String get toolsToHelpYouStaySafe =>
+      'Tools to help you stay safe, wherever you go.';
+
+  @override
+  String get geoFencing => 'Geo Fencing';
+
+  @override
+  String get geoFencingShortDesc =>
+      'Create a safe perimeter around a location.';
+
+  @override
+  String get navigation => 'Navigation';
+
+  @override
+  String get navigationShortDesc => 'Access safe routes and directions.';
+
+  @override
+  String get fakeCall => 'Fake Call';
+
+  @override
+  String get fakeCallShortDesc => 'Schedule a simulated incoming call.';
+
+  @override
+  String get emergencyServices => 'Emergency';
+
+  @override
+  String get emergencyServicesShortDesc =>
+      'Quick access to emergency services.';
+
+  @override
+  String get emergencyNumbers => 'Emergency Numbers';
+
+  @override
+  String get quickAccessToHelp => 'Quick access to help when you need it.';
+
+  @override
+  String get searchEmergencyService =>
+      'Search service or number (e.g., Police, 112)...';
+
+  @override
+  String get allInOneEmergency => 'All-in-One Emergency';
+
+  @override
+  String get allInOneDesc =>
+      'National single emergency response for Police, Fire & Medical distress.';
+
+  @override
+  String get police => 'Police';
+
+  @override
+  String get policeDesc =>
+      'Immediate police intervention, crime reporting & law enforcement assistance.';
+
+  @override
+  String get ambulance => 'Ambulance';
+
+  @override
+  String get ambulanceDesc =>
+      '24/7 free emergency medical services and patient transportation.';
+
+  @override
+  String get fireServices => 'Fire Services';
+
+  @override
+  String get fireServicesDesc =>
+      'Immediate fire brigade dispatch and disaster rescue operations.';
+
+  @override
+  String get womenHelpline => 'Women Helpline';
+
+  @override
+  String get womenHelplineDesc =>
+      '24/7 emergency response, crisis intervention & support for women.';
+
+  @override
+  String get childHelpline => 'Child Helpline';
+
+  @override
+  String get childHelplineDesc =>
+      'National 24-hour toll-free emergency care & protection for children.';
+
+  @override
+  String get call => 'Call';
+
+  @override
+  String get couldNotOpenDialer => 'Could not open phone dialer for';
+
+  @override
+  String get failedToInitiateCall => 'Failed to initiate call:';
+
+  @override
+  String get aiAssistant => 'AI Assistant';
+
+  @override
+  String get profile => 'Profile';
+
+  @override
+  String get userName => 'User Name';
+
+  @override
+  String get emailAddress => 'Email Address';
+
+  @override
+  String get editName => 'Edit Name';
+
+  @override
+  String get confirmLogout => 'Confirm Log Out';
+
+  @override
+  String get areYouSureYouWantToLogOut => 'Are you sure you want to log out?';
+
+  @override
+  String get deleteContact => 'Delete Contact';
+
+  @override
+  String get areYouSureDeleteContact =>
+      'Are you sure you want to remove this emergency contact?';
 }

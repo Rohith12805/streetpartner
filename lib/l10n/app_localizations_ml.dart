@@ -468,4 +468,198 @@ class AppLocalizationsMl extends AppLocalizations {
   @override
   String get routeFencingDesc =>
       'ഒരു ലക്ഷ്യസ്ഥാനത്തേക്ക് സുരക്ഷിതമായ ഒരു യാത്രാ ഇടനാഴി സജ്ജീകരിക്കുക. നിങ്ങൾ പാതയിൽ നിന്ന് വ്യതിചലിക്കുകയാണെങ്കിൽ SOS ട്രിഗർ ചെയ്യുന്നു.';
+
+  @override
+  String get home => 'ഹോം';
+
+  @override
+  String get features => 'സവിശേഷതകൾ';
+
+  @override
+  String get emergency => 'അടിയന്തിരം';
+
+  @override
+  String get locationEnabled => 'ലൊക്കേഷൻ പ്രവർത്തനക്ഷമമാക്കി';
+
+  @override
+  String get gpsTurnedOff => 'GPS ഓഫാണ്';
+
+  @override
+  String get locationPermissionRequired => 'ലൊക്കേഷൻ അനുമതി ആവശ്യമാണ്';
+
+  @override
+  String get enableLocationToShare =>
+      'നിങ്ങളുടെ സ്ഥാനം പങ്കിടാൻ ലൊക്കേഷൻ പ്രവർത്തനക്ഷമമാക്കുക';
+
+  @override
+  String get enableDeviceLocation =>
+      'നിങ്ങളുടെ സ്ഥാനം പങ്കിടാൻ ഉപകരണ ലൊക്കേഷൻ പ്രവർത്തനക്ഷമമാക്കുക';
+
+  @override
+  String get tapToGrantGpsPermission =>
+      'സുരക്ഷാ ഫീച്ചറുകൾക്കായി അനുമതി നൽകാൻ ടാപ്പ് ചെയ്യുക';
+
+  @override
+  String get locatingViaGps => 'GPS വഴി കണ്ടെത്തുന്നു...';
+
+  @override
+  String get fetchingHighAccuracyCoordinates =>
+      'കൃത്യമായ കോർഡിനേറ്റുകൾ കണ്ടെത്തുന്നു';
+
+  @override
+  String get actionNeeded => 'നടപടി ആവശ്യമാണ്';
+
+  @override
+  String get disabled => 'പ്രവർത്തനരഹിതമാക്കി';
+
+  @override
+  String get pressToTriggerCountdown =>
+      '10 സെക്കൻഡ് അടിയന്തര കൗണ്ട്ഡൗൺ ആരംഭിക്കാൻ അമർത്തുക.';
+
+  @override
+  String get alertsTrustedContactsAndSiren =>
+      'വിശ്വസ്ത കോൺടാക്റ്റുകളെ അറിയിക്കുകയും സൈറൺ മുഴക്കുകയും ചെയ്യുന്നു.';
+
+  @override
+  String get sosAlertActive => '🚨 SOS അലേർട്ട് സജീവം';
+
+  @override
+  String get pressAgainToCancelOrStop =>
+      'റദ്ദാക്കാനോ ലൊക്കേഷൻ പങ്കിടൽ നിർത്താനോ വീണ്ടും അമർത്തുക.';
+
+  @override
+  String get keepSosReadyInBackground =>
+      'പശ്ചാത്തലത്തിൽ SOS തയ്യാറാക്കി വെക്കുക.';
+
+  @override
+  String get staySafeStayStrong => 'സുരക്ഷിതമായിരിക്കുക, ശക്തമായിരിക്കുക';
+
+  @override
+  String get yourSafetyMatters =>
+      'നിങ്ങളുടെ സുരക്ഷ പ്രധാനമാണ്. ഞങ്ങൾ എപ്പോഴും നിങ്ങളോടൊപ്പമുണ്ട്.';
+
+  @override
+  String get safetyFeatures => 'സുരക്ഷാ സവിശേഷതകൾ';
+
+  @override
+  String get toolsToHelpYouStaySafe =>
+      'നിങ്ങൾ എവിടെ പോയാലും സുരക്ഷിതമായിരിക്കാൻ സഹായിക്കുന്ന ടൂളുകൾ.';
+
+  @override
+  String get geoFencing => 'ജിയോ ഫെൻസിംഗ്';
+
+  @override
+  String get geoFencingShortDesc =>
+      'ഒരു സ്ഥലത്തിന് ചുറ്റും സുരക്ഷിതമായ പരിധി സൃഷ്ടിക്കുക.';
+
+  @override
+  String get navigation => 'നാവിഗേഷൻ';
+
+  @override
+  String get navigationShortDesc =>
+      'സുരക്ഷിതമായ വഴികളും ദിശകളും ആക്സസ് ചെയ്യുക.';
+
+  @override
+  String get fakeCall => 'വ്യാജ കോൾ';
+
+  @override
+  String get fakeCallShortDesc => 'സിമുലേറ്റഡ് ഇൻകമിംഗ് കോൾ ഷെഡ്യൂൾ ചെയ്യുക.';
+
+  @override
+  String get emergencyServices => 'അടിയന്തര സേവനങ്ങൾ';
+
+  @override
+  String get emergencyServicesShortDesc =>
+      'അടിയന്തര സേവനങ്ങളിലേക്കുള്ള ദ്രുത പ്രവേശനം.';
+
+  @override
+  String get emergencyNumbers => 'അടിയന്തര നമ്പറുകൾ';
+
+  @override
+  String get quickAccessToHelp =>
+      'ആവശ്യമുള്ളപ്പോൾ സഹായത്തിനുള്ള ദ്രുത പ്രവേശനം.';
+
+  @override
+  String get searchEmergencyService =>
+      'സേവനമോ നമ്പറോ തിരയുക (ഉദാ. പോലീസ്, 112)...';
+
+  @override
+  String get allInOneEmergency => 'ഓൾ-ഇൻ-വൺ അടിയന്തിരം';
+
+  @override
+  String get allInOneDesc =>
+      'പോലീസ്, ഫയർ, മെഡിക്കൽ അടിയന്തരാവസ്ഥകൾക്കായുള്ള ദേശീയ ഏകീകൃത പ്രതികരണം.';
+
+  @override
+  String get police => 'പോലീസ്';
+
+  @override
+  String get policeDesc =>
+      'ഉടനടി പോലീസ് ഇടപെടൽ, കുറ്റകൃത്യങ്ങൾ റിപ്പോർട്ട് ചെയ്യൽ, നിയമപാലന സഹായം.';
+
+  @override
+  String get ambulance => 'ആംബുലൻസ്';
+
+  @override
+  String get ambulanceDesc =>
+      '24/7 സൗജന്യ അടിയന്തര മെഡിക്കൽ സേവനങ്ങളും രോഗി ഗതാഗതവും.';
+
+  @override
+  String get fireServices => 'ഫയർ സർവീസുകൾ';
+
+  @override
+  String get fireServicesDesc =>
+      'ഉടനടി ഫയർഫോഴ്സ് സേവനവും ദുരന്ത രക്ഷാപ്രവർത്തനങ്ങളും.';
+
+  @override
+  String get womenHelpline => 'വനിതാ ഹെൽപ്പ്‌ലൈൻ';
+
+  @override
+  String get womenHelplineDesc =>
+      'സ്ത്രീകൾക്കായുള്ള 24/7 അടിയന്തര സഹായവും പിന്തുണയും.';
+
+  @override
+  String get childHelpline => 'കുട്ടികളുടെ ഹെൽപ്പ്‌ലൈൻ';
+
+  @override
+  String get childHelplineDesc =>
+      'കുട്ടികൾക്കായുള്ള ദേശീയ 24 മണിക്കൂർ സൗജന്യ അടിയന്തര പരിചരണവും സംരക്ഷണവും.';
+
+  @override
+  String get call => 'വിളിക്കുക';
+
+  @override
+  String get couldNotOpenDialer => 'ഫോൺ ഡയലർ തുറക്കാനായില്ല';
+
+  @override
+  String get failedToInitiateCall => 'കോൾ ആരംഭിക്കുന്നതിൽ പരാജയപ്പെട്ടു:';
+
+  @override
+  String get aiAssistant => 'AI അസിസ്റ്റന്റ്';
+
+  @override
+  String get profile => 'പ്രൊഫൈൽ';
+
+  @override
+  String get userName => 'ഉപയോക്തൃ നാമം';
+
+  @override
+  String get emailAddress => 'ഇമെയിൽ വിലാസം';
+
+  @override
+  String get editName => 'പേര് എഡിറ്റ് ചെയ്യുക';
+
+  @override
+  String get confirmLogout => 'ലോഗ് ഔട്ട് സ്ഥിരീകരിക്കുക';
+
+  @override
+  String get areYouSureYouWantToLogOut =>
+      'തീർച്ചയായും ലോഗ് ഔട്ട് ചെയ്യണമെന്നുണ്ടോ?';
+
+  @override
+  String get deleteContact => 'കോൺടാക്റ്റ് ഇല്ലാതാക്കുക';
+
+  @override
+  String get areYouSureDeleteContact =>
+      'ഈ അടിയന്തര കോൺടാക്റ്റ് നീക്കംചെയ്യണമെന്ന് ഉറപ്പാണോ?';
 }

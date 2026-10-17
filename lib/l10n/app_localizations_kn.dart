@@ -469,4 +469,194 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get routeFencingDesc =>
       'ಗಮ್ಯಸ್ಥಾನಕ್ಕೆ ಸುರಕ್ಷಿತ ಪ್ರಯಾಣ ಕಾರಿಡಾರ್ ಅನ್ನು ಹೊಂದಿಸಿ. ನೀವು ಮಾರ್ಗದಿಂದ ವಿಪಥಗೊಂಡರೆ SOS ಅನ್ನು ಪ್ರಚೋದಿಸುತ್ತದೆ.';
+
+  @override
+  String get home => 'ಮುಖಪುಟ';
+
+  @override
+  String get features => 'ವೈಶಿಷ್ಟ್ಯಗಳು';
+
+  @override
+  String get emergency => 'ತುರ್ತು';
+
+  @override
+  String get locationEnabled => 'ಸ್ಥಳ ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ';
+
+  @override
+  String get gpsTurnedOff => 'GPS ಆಫ್ ಆಗಿದೆ';
+
+  @override
+  String get locationPermissionRequired => 'ಸ್ಥಳ ಅನುಮತಿ ಅಗತ್ಯವಿದೆ';
+
+  @override
+  String get enableLocationToShare =>
+      'ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಲು ಸ್ಥಳವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ';
+
+  @override
+  String get enableDeviceLocation =>
+      'ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಲು ಸಾಧನದ ಸ್ಥಳವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ';
+
+  @override
+  String get tapToGrantGpsPermission =>
+      'ಸುರಕ್ಷತಾ ವೈಶಿಷ್ಟ್ಯಗಳಿಗಾಗಿ ಅನುಮತಿ ನೀಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ';
+
+  @override
+  String get locatingViaGps => 'GPS ಮೂಲಕ ಪತ್ತೆಮಾಡಲಾಗುತ್ತಿದೆ...';
+
+  @override
+  String get fetchingHighAccuracyCoordinates =>
+      'ನಿಖರವಾದ ನಿರ್ದೇಶಾಂಕಗಳನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ';
+
+  @override
+  String get actionNeeded => 'ಕ್ರಮ ಅಗತ್ಯವಿದೆ';
+
+  @override
+  String get disabled => 'ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ';
+
+  @override
+  String get pressToTriggerCountdown =>
+      '10 ಸೆಕೆಂಡುಗಳ ತುರ್ತು ಕೌಂಟ್‌ಡೌನ್ ಪ್ರಾರಂಭಿಸಲು ಒತ್ತಿರಿ.';
+
+  @override
+  String get alertsTrustedContactsAndSiren =>
+      'ವಿಶ್ವಾಸಾರ್ಹ ಸಂಪರ್ಕಗಳನ್ನು ಎಚ್ಚರಿಸುತ್ತದೆ ಮತ್ತು ಸೈರನ್ ಧ್ವನಿಸುತ್ತದೆ.';
+
+  @override
+  String get sosAlertActive => '🚨 SOS ಎಚ್ಚರಿಕೆ ಸಕ್ರಿಯವಾಗಿದೆ';
+
+  @override
+  String get pressAgainToCancelOrStop =>
+      'ರದ್ದುಗೊಳಿಸಲು ಅಥವಾ ಸ್ಥಳ ಹಂಚಿಕೆಯನ್ನು ನಿಲ್ಲಿಸಲು ಮತ್ತೊಮ್ಮೆ ಒತ್ತಿರಿ.';
+
+  @override
+  String get keepSosReadyInBackground => 'ಹಿನ್ನೆಲೆಯಲ್ಲಿ SOS ಸಿದ್ಧವಾಗಿರಿಸಿ.';
+
+  @override
+  String get staySafeStayStrong => 'ಸುರಕ್ಷಿತವಾಗಿರಿ, ಬಲವಾಗಿರಿ';
+
+  @override
+  String get yourSafetyMatters =>
+      'ನಿಮ್ಮ ಸುರಕ್ಷತೆ ಮುಖ್ಯ. ನಾವು ಯಾವಾಗಲೂ ನಿಮ್ಮೊಂದಿಗಿದ್ದೇವೆ.';
+
+  @override
+  String get safetyFeatures => 'ಸುರಕ್ಷತಾ ವೈಶಿಷ್ಟ್ಯಗಳು';
+
+  @override
+  String get toolsToHelpYouStaySafe =>
+      'ನೀವು ಎಲ್ಲಿಗೆ ಹೋದರೂ ಸುರಕ್ಷಿತವಾಗಿರಲು ಸಹಾಯ ಮಾಡುವ ಸಾಧನಗಳು.';
+
+  @override
+  String get geoFencing => 'ಜಿಯೋ ಫೆನ್ಸಿಂಗ್';
+
+  @override
+  String get geoFencingShortDesc => 'ಸ್ಥಳದ ಸುತ್ತಲೂ ಸುರಕ್ಷಿತ ಪರಿಧಿಯನ್ನು ರಚಿಸಿ.';
+
+  @override
+  String get navigation => 'ನ್ಯಾವಿಗೇಷನ್';
+
+  @override
+  String get navigationShortDesc =>
+      'ಸುರಕ್ಷಿತ ಮಾರ್ಗಗಳು ಮತ್ತು ನಿರ್ದೇಶನಗಳನ್ನು ಪ್ರವೇಶಿಸಿ.';
+
+  @override
+  String get fakeCall => 'ನಕಲಿ ಕರೆ';
+
+  @override
+  String get fakeCallShortDesc => 'ಅನುಕರಿಸಿದ ಒಳಬರುವ ಕರೆಯನ್ನು ನಿಗದಿಪಡಿಸಿ.';
+
+  @override
+  String get emergencyServices => 'ತುರ್ತು ಸೇವೆಗಳು';
+
+  @override
+  String get emergencyServicesShortDesc => 'ತುರ್ತು ಸೇವೆಗಳಿಗೆ ತ್ವರಿತ ಪ್ರವೇಶ.';
+
+  @override
+  String get emergencyNumbers => 'ತುರ್ತು ಸಂಖ್ಯೆಗಳು';
+
+  @override
+  String get quickAccessToHelp => 'ನಿಮಗೆ ಅಗತ್ಯವಿರುವಾಗ ಸಹಾಯಕ್ಕೆ ತ್ವರಿತ ಪ್ರವೇಶ.';
+
+  @override
+  String get searchEmergencyService =>
+      'ಸೇವೆ ಅಥವಾ ಸಂಖ್ಯೆಯನ್ನು ಹುಡುಕಿ (ಉದಾ. ಪೊಲೀಸ್, 112)...';
+
+  @override
+  String get allInOneEmergency => 'ಆಲ್-ಇನ್-ಒನ್ ತುರ್ತು';
+
+  @override
+  String get allInOneDesc =>
+      'ಪೊಲೀಸ್, ಅಗ್ನಿಶಾಮಕ ಮತ್ತು ವೈದ್ಯಕೀಯ ತೊಂದರೆಗಳಿಗೆ ರಾಷ್ಟ್ರೀಯ ಏಕೈಕ ತುರ್ತು ಪ್ರತಿಕ್ರಿಯೆ.';
+
+  @override
+  String get police => 'ಪೊಲೀಸ್';
+
+  @override
+  String get policeDesc =>
+      'ತಕ್ಷಣದ ಪೊಲೀಸ್ ಹಸ್ತಕ್ಷೇಪ, ಅಪರಾಧ ವರದಿ ಮತ್ತು ಕಾನೂನು ಜಾರಿ ನೆರವು.';
+
+  @override
+  String get ambulance => 'ಆಂಬ್ಯುಲೆನ್ಸ್';
+
+  @override
+  String get ambulanceDesc =>
+      '24/7 ಉಚಿತ ತುರ್ತು ವೈದ್ಯಕೀಯ ಸೇವೆಗಳು ಮತ್ತು ರೋಗಿಗಳ ಸಾಗಣೆ.';
+
+  @override
+  String get fireServices => 'ಅಗ್ನಿಶಾಮಕ ಸೇವೆಗಳು';
+
+  @override
+  String get fireServicesDesc =>
+      'ತಕ್ಷಣದ ಅಗ್ನಿಶಾಮಕ ದಳ ರವಾನೆ ಮತ್ತು ವಿಪತ್ತು ರಕ್ಷಣಾ ಕಾರ್ಯಾಚರಣೆಗಳು.';
+
+  @override
+  String get womenHelpline => 'ಮಹಿಳಾ ಸಹಾಯವಾಣಿ';
+
+  @override
+  String get womenHelplineDesc =>
+      'ಮಹಿಳೆಯರಿಗೆ 24/7 ತುರ್ತು ಪ್ರತಿಕ್ರಿಯೆ, ಬಿಕ್ಕಟ್ಟು ಹಸ್ತಕ್ಷೇಪ ಮತ್ತು ಬೆಂಬಲ.';
+
+  @override
+  String get childHelpline => 'ಮಕ್ಕಳ ಸಹಾಯವಾಣಿ';
+
+  @override
+  String get childHelplineDesc =>
+      'ಮಕ್ಕಳಿಗಾಗಿ ರಾಷ್ಟ್ರೀಯ 24 ಗಂಟೆಗಳ ಉಚಿತ ತುರ್ತು ಆರೈಕೆ ಮತ್ತು ರಕ್ಷಣೆ.';
+
+  @override
+  String get call => 'ಕರೆ ಮಾಡಿ';
+
+  @override
+  String get couldNotOpenDialer => 'ಗಾಗಿ ಫೋನ್ ಡಯಲರ್ ತೆರೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
+
+  @override
+  String get failedToInitiateCall => 'ಕರೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲು ವಿಫಲವಾಗಿದೆ:';
+
+  @override
+  String get aiAssistant => 'AI ಸಹಾಯಕ';
+
+  @override
+  String get profile => 'ಪ್ರೊಫೈಲ್';
+
+  @override
+  String get userName => 'ಬಳಕೆದಾರ ಹೆಸರು';
+
+  @override
+  String get emailAddress => 'ಇಮೇಲ್ ವಿಳಾಸ';
+
+  @override
+  String get editName => 'ಹೆಸರನ್ನು ಸಂಪಾದಿಸಿ';
+
+  @override
+  String get confirmLogout => 'ಲಾಗ್ ಔಟ್ ದೃಢೀಕರಿಸಿ';
+
+  @override
+  String get areYouSureYouWantToLogOut =>
+      'ನೀವು ಖಚಿತವಾಗಿ ಲಾಗ್ ಔಟ್ ಮಾಡಲು ಬಯಸುವಿರಾ?';
+
+  @override
+  String get deleteContact => 'ಸಂಪರ್ಕವನ್ನು ಅಳಿಸಿ';
+
+  @override
+  String get areYouSureDeleteContact =>
+      'ಈ ತುರ್ತು ಸಂಪರ್ಕವನ್ನು ತೆಗೆದುಹಾಕಲು ನೀವು ಖಚಿತವಾಗಿ ಬಯಸುವಿರಾ?';
 }

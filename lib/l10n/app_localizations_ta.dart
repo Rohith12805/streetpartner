@@ -471,4 +471,197 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get routeFencingDesc =>
       'இலக்குக்கு பாதுகாப்பான பயண வழித்தடத்தை அமைக்கவும். நீங்கள் பாதையில் இருந்து விலகினால் SOS ஐ தூண்டுகிறது.';
+
+  @override
+  String get home => 'முகப்பு';
+
+  @override
+  String get features => 'அம்சங்கள்';
+
+  @override
+  String get emergency => 'அவசரம்';
+
+  @override
+  String get locationEnabled => 'இருப்பிடம் இயக்கப்பட்டது';
+
+  @override
+  String get gpsTurnedOff => 'GPS முடக்கப்பட்டுள்ளது';
+
+  @override
+  String get locationPermissionRequired => 'இருப்பிட அனுமதி தேவை';
+
+  @override
+  String get enableLocationToShare =>
+      'உங்கள் இருப்பிடத்தைப் பகிர இருப்பிடத்தை இயக்கவும்';
+
+  @override
+  String get enableDeviceLocation =>
+      'உங்கள் இருப்பிடத்தைப் பகிர சாதன இருப்பிடத்தை இயக்கவும்';
+
+  @override
+  String get tapToGrantGpsPermission =>
+      'பாதுகாப்பு அம்சங்களுக்கு அனுமதி வழங்க தட்டவும்';
+
+  @override
+  String get locatingViaGps => 'GPS மூலம் கண்டறியப்படுகிறது...';
+
+  @override
+  String get fetchingHighAccuracyCoordinates =>
+      'துல்லியமான ஆயத்தொலைவுகளைப் பெறுகிறது';
+
+  @override
+  String get actionNeeded => 'நடவடிக்கை தேவை';
+
+  @override
+  String get disabled => 'முடக்கப்பட்டது';
+
+  @override
+  String get pressToTriggerCountdown =>
+      '10 வினாடி அவசர கவுண்ட்டவுனைத் தொடங்க அழுத்தவும்.';
+
+  @override
+  String get alertsTrustedContactsAndSiren =>
+      'நம்பகமான தொடர்புகளுக்கு எச்சரிக்கை விடுத்து சைரன் ஒலிக்கும்.';
+
+  @override
+  String get sosAlertActive => '🚨 SOS எச்சரிக்கை செயலில் உள்ளது';
+
+  @override
+  String get pressAgainToCancelOrStop =>
+      'ரத்து செய்ய அல்லது இருப்பிடப் பகிர்வை நிறுத்த மீண்டும் அழுத்தவும்.';
+
+  @override
+  String get keepSosReadyInBackground =>
+      'பின்னணியில் SOS தயார் நிலையில் வைக்கவும்.';
+
+  @override
+  String get staySafeStayStrong => 'பாதுகாப்பாக இருங்கள், வலிமையாக இருங்கள்';
+
+  @override
+  String get yourSafetyMatters =>
+      'உங்கள் பாதுகாப்பு முக்கியமானது. நாங்கள் எப்போதும் உங்களுடன் இருக்கிறோம்.';
+
+  @override
+  String get safetyFeatures => 'பாதுகாப்பு அம்சங்கள்';
+
+  @override
+  String get toolsToHelpYouStaySafe =>
+      'நீங்கள் எங்கு சென்றாலும் பாதுகாப்பாக இருக்க உதவும் கருவிகள்.';
+
+  @override
+  String get geoFencing => 'ஜியோ ஃபென்சிங்';
+
+  @override
+  String get geoFencingShortDesc =>
+      'ஒரு இடத்தை சுற்றி பாதுகாப்பான சுற்றளவை உருவாக்கவும்.';
+
+  @override
+  String get navigation => 'வழிசெலுத்தல்';
+
+  @override
+  String get navigationShortDesc =>
+      'பாதுகாப்பான பாதைகள் மற்றும் வழிகளை அணுகவும்.';
+
+  @override
+  String get fakeCall => 'போலி அழைப்பு';
+
+  @override
+  String get fakeCallShortDesc => 'போலி உள்வரும் அழைப்பை திட்டமிடுங்கள்.';
+
+  @override
+  String get emergencyServices => 'அவசர சேவைகள்';
+
+  @override
+  String get emergencyServicesShortDesc => 'அவசர சேவைகளுக்கான விரைவான அணுகல்.';
+
+  @override
+  String get emergencyNumbers => 'அவசர எண்கள்';
+
+  @override
+  String get quickAccessToHelp =>
+      'உங்களுக்குத் தேவைப்படும்போது உதவிக்கு விரைவான அணுகல்.';
+
+  @override
+  String get searchEmergencyService =>
+      'சேவை அல்லது எண்ணைத் தேடவும் (எ.கா., காவல், 112)...';
+
+  @override
+  String get allInOneEmergency => 'அனைத்தும் உள்ளடக்கிய அவசரம்';
+
+  @override
+  String get allInOneDesc =>
+      'காவல்துறை, தீயணைப்பு மற்றும் மருத்துவ அவசரத்திற்கான தேசிய ஒற்றை உதவி எண்.';
+
+  @override
+  String get police => 'காவல்துறை';
+
+  @override
+  String get policeDesc =>
+      'உடனடி காவல் தலையீடு, குற்ற அறிக்கை மற்றும் சட்ட அமலாக்க உதவி.';
+
+  @override
+  String get ambulance => 'ஆம்புலன்ஸ்';
+
+  @override
+  String get ambulanceDesc =>
+      '24/7 இலவச அவசர மருத்துவ சேவைகள் மற்றும் நோயாளி போக்குவரத்து.';
+
+  @override
+  String get fireServices => 'தீயணைப்பு சேவைகள்';
+
+  @override
+  String get fireServicesDesc =>
+      'உடனடி தீயணைப்பு படை மற்றும் பேரிடர் மீட்பு நடவடிக்கைகள்.';
+
+  @override
+  String get womenHelpline => 'பெண்கள் உதவி எண்';
+
+  @override
+  String get womenHelplineDesc =>
+      'பெண்களுக்கான 24/7 அவசர உதவி, நெருக்கடி தலையீடு மற்றும் ஆதரவு.';
+
+  @override
+  String get childHelpline => 'குழந்தைகள் உதவி எண்';
+
+  @override
+  String get childHelplineDesc =>
+      'குழந்தைகளுக்கான தேசிய 24 மணி நேர இலவச அவசர பராமரிப்பு மற்றும் பாதுகாப்பு.';
+
+  @override
+  String get call => 'அழைக்கவும்';
+
+  @override
+  String get couldNotOpenDialer => 'க்கான டயலரைத் திறக்க முடியவில்லை';
+
+  @override
+  String get failedToInitiateCall => 'அழைப்பைத் தொடங்க முடியவில்லை:';
+
+  @override
+  String get aiAssistant => 'AI உதவியாளர்';
+
+  @override
+  String get profile => 'சுயவிவரம்';
+
+  @override
+  String get userName => 'பயனர் பெயர்';
+
+  @override
+  String get emailAddress => 'மின்னஞ்சல் முகவரி';
+
+  @override
+  String get editName => 'பெயரைத் திருத்தவும்';
+
+  @override
+  String get confirmLogout => 'வெளியேறுவதை உறுதிப்படுத்தவும்';
+
+  @override
+  String get areYouSureYouWantToLogOut =>
+      'நிச்சயமாக வெளியேற விரும்புகிறீர்களா?';
+
+  @override
+  String get deleteContact => 'தொடர்பை நீக்கு';
+
+  @override
+  String get areYouSureDeleteContact =>
+      'இந்த அவசர தொடர்பை நிச்சயமாக நீக்க விரும்புகிறீர்களா?';
 }

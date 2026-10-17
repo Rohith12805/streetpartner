@@ -461,4 +461,193 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get routeFencingDesc =>
       'किसी गंतव्य के लिए एक सुरक्षित यात्रा गलियारा निर्धारित करें। यदि आप पथ से भटकते हैं तो एसओएस ट्रिगर हो जाता है।';
+
+  @override
+  String get home => 'होम';
+
+  @override
+  String get features => 'सुविधाएं';
+
+  @override
+  String get emergency => 'आपातकालीन';
+
+  @override
+  String get locationEnabled => 'स्थान सक्षम';
+
+  @override
+  String get gpsTurnedOff => 'जीपीएस बंद है';
+
+  @override
+  String get locationPermissionRequired => 'स्थान अनुमति आवश्यक है';
+
+  @override
+  String get enableLocationToShare =>
+      'अपनी स्थिति साझा करने के लिए स्थान सक्षम करें';
+
+  @override
+  String get enableDeviceLocation =>
+      'अपनी स्थिति साझा करने के लिए डिवाइस स्थान सक्षम करें';
+
+  @override
+  String get tapToGrantGpsPermission =>
+      'सुरक्षा सुविधाओं के लिए अनुमति देने के लिए टैप करें';
+
+  @override
+  String get locatingViaGps => 'जीपीएस से स्थान खोजा जा रहा है...';
+
+  @override
+  String get fetchingHighAccuracyCoordinates =>
+      'सटीक निर्देशांक प्राप्त किए जा रहे हैं';
+
+  @override
+  String get actionNeeded => 'कार्रवाई आवश्यक';
+
+  @override
+  String get disabled => 'अक्षम';
+
+  @override
+  String get pressToTriggerCountdown =>
+      '10 सेकंड का आपातकालीन उलटी गिनती शुरू करने के लिए दबाएं।';
+
+  @override
+  String get alertsTrustedContactsAndSiren =>
+      'विश्वसनीय संपर्कों को सतर्क करता है और सायरन बजाता है।';
+
+  @override
+  String get sosAlertActive => '🚨 एसओएस अलर्ट सक्रिय';
+
+  @override
+  String get pressAgainToCancelOrStop =>
+      'रद्द करने या स्थान साझा करना बंद करने के लिए फिर से दबाएं।';
+
+  @override
+  String get keepSosReadyInBackground => 'पृष्ठभूमि में एसओएस को तैयार रखें।';
+
+  @override
+  String get staySafeStayStrong => 'सुरक्षित रहें, सशक्त रहें';
+
+  @override
+  String get yourSafetyMatters =>
+      'आपकी सुरक्षा महत्वपूर्ण है। हम हमेशा आपके साथ हैं।';
+
+  @override
+  String get safetyFeatures => 'सुरक्षा सुविधाएं';
+
+  @override
+  String get toolsToHelpYouStaySafe =>
+      'आप जहाँ भी जाएँ, सुरक्षित रहने में मदद करने वाले उपकरण।';
+
+  @override
+  String get geoFencing => 'जियो फेंसिंग';
+
+  @override
+  String get geoFencingShortDesc =>
+      'किसी स्थान के चारों ओर एक सुरक्षित परिधि बनाएं।';
+
+  @override
+  String get navigation => 'नेविगेशन';
+
+  @override
+  String get navigationShortDesc => 'सुरक्षित मार्गों और दिशाओं तक पहुँचें।';
+
+  @override
+  String get fakeCall => 'फेक कॉल';
+
+  @override
+  String get fakeCallShortDesc => 'सिम्युलेटेड इनकमिंग कॉल शेड्यूल करें।';
+
+  @override
+  String get emergencyServices => 'आपातकालीन सेवाएं';
+
+  @override
+  String get emergencyServicesShortDesc => 'आपातकालीन सेवाओं तक त्वरित पहुँच।';
+
+  @override
+  String get emergencyNumbers => 'आपातकालीन नंबर';
+
+  @override
+  String get quickAccessToHelp => 'जरूरत पड़ने पर मदद तक तुरंत पहुँच।';
+
+  @override
+  String get searchEmergencyService =>
+      'सेवा या नंबर खोजें (उदा. पुलिस, 112)...';
+
+  @override
+  String get allInOneEmergency => 'ऑल-इन-वन आपातकालीन';
+
+  @override
+  String get allInOneDesc =>
+      'पुलिस, आग और चिकित्सा संकट के लिए राष्ट्रीय एकल आपातकालीन प्रतिक्रिया।';
+
+  @override
+  String get police => 'पुलिस';
+
+  @override
+  String get policeDesc =>
+      'त्वरित पुलिस हस्तक्षेप, अपराध रिपोर्टिंग और कानून प्रवर्तन सहायता।';
+
+  @override
+  String get ambulance => 'एम्बुलेंस';
+
+  @override
+  String get ambulanceDesc =>
+      '24/7 निःशुल्क आपातकालीन चिकित्सा सेवाएं और रोगी परिवहन।';
+
+  @override
+  String get fireServices => 'अग्निशमन सेवाएं';
+
+  @override
+  String get fireServicesDesc => 'तत्काल दमकल दल प्रेषण और आपदा बचाव अभियान।';
+
+  @override
+  String get womenHelpline => 'महिला हेल्पलाइन';
+
+  @override
+  String get womenHelplineDesc =>
+      'महिलाओं के लिए 24/7 आपातकालीन प्रतिक्रिया, संकट निवारण और सहायता।';
+
+  @override
+  String get childHelpline => 'चाइल्ड हेल्पलाइन';
+
+  @override
+  String get childHelplineDesc =>
+      'बच्चों के लिए राष्ट्रीय 24 घंटे टोल-फ्री आपातकालीन देखभाल और सुरक्षा।';
+
+  @override
+  String get call => 'कॉल करें';
+
+  @override
+  String get couldNotOpenDialer => 'के लिए फोन डायलर नहीं खोला जा सका';
+
+  @override
+  String get failedToInitiateCall => 'कॉल शुरू करने में विफल:';
+
+  @override
+  String get aiAssistant => 'एआई सहायक';
+
+  @override
+  String get profile => 'प्रोफ़ाइल';
+
+  @override
+  String get userName => 'उपयोगकर्ता नाम';
+
+  @override
+  String get emailAddress => 'ईमेल पता';
+
+  @override
+  String get editName => 'नाम संपादित करें';
+
+  @override
+  String get confirmLogout => 'लॉग आउट की पुष्टि करें';
+
+  @override
+  String get areYouSureYouWantToLogOut =>
+      'क्या आप वाकई लॉग आउट करना चाहते हैं?';
+
+  @override
+  String get deleteContact => 'संपर्क हटाएं';
+
+  @override
+  String get areYouSureDeleteContact =>
+      'क्या आप वाकई इस आपातकालीन संपर्क को हटाना चाहते हैं?';
 }

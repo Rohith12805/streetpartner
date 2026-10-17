@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/home_dashboard_screen.dart';
 
 import 'screens/registration_screen.dart';
@@ -17,6 +18,8 @@ import 'screens/ai_assistant_screen.dart';
 import 'screens/fake_call_generator_screen.dart';
 import 'screens/area_safety_index_screen.dart';
 import 'screens/nearby_emergency_services_screen.dart';
+import 'screens/features_screen.dart';
+import 'screens/emergency_numbers_screen.dart';
 import 'services/fake_call_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:streetpartner/l10n/app_localizations.dart';
@@ -129,11 +132,14 @@ class SheildApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         final Map<String, WidgetBuilder> routes = {
           '/': (ctx) => const AuthWrapper(),
+          '/onboarding': (ctx) => const OnboardingScreen(),
           '/login': (ctx) => const LoginScreen(),
           '/registration': (ctx) => const RegistrationScreen(),
 
           '/home': (ctx) => const HomeDashboardScreen(),
           '/dashboard': (ctx) => const HomeDashboardScreen(),
+          '/features': (ctx) => const FeaturesScreen(),
+          '/emergency-numbers': (ctx) => const EmergencyNumbersScreen(),
           '/profile': (ctx) => const ProfileManagementScreen(),
           '/fencing-hub': (ctx) => const FencingHubScreen(),
           '/geofencing': (ctx) => const GeofencingScreen(),
@@ -214,7 +220,9 @@ class AuthWrapper extends StatelessWidget {
             },
           );
         }
-        return const LoginScreen();
+
+        // Unauthenticated: show Onboarding welcome screen until user signs in
+        return const OnboardingScreen();
       },
     );
   }

@@ -951,6 +951,348 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Set a safe travel corridor to a destination. Triggers SOS if you deviate from the path.'**
   String get routeFencingDesc;
+
+  /// No description provided for @home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get home;
+
+  /// No description provided for @features.
+  ///
+  /// In en, this message translates to:
+  /// **'Features'**
+  String get features;
+
+  /// No description provided for @emergency.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency'**
+  String get emergency;
+
+  /// No description provided for @locationEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Location Enabled'**
+  String get locationEnabled;
+
+  /// No description provided for @gpsTurnedOff.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS Turned Off'**
+  String get gpsTurnedOff;
+
+  /// No description provided for @locationPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Location Permission Required'**
+  String get locationPermissionRequired;
+
+  /// No description provided for @enableLocationToShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable location to share your position'**
+  String get enableLocationToShare;
+
+  /// No description provided for @enableDeviceLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable device location to share your position'**
+  String get enableDeviceLocation;
+
+  /// No description provided for @tapToGrantGpsPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to grant permission for safety features'**
+  String get tapToGrantGpsPermission;
+
+  /// No description provided for @locatingViaGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Locating via GPS...'**
+  String get locatingViaGps;
+
+  /// No description provided for @fetchingHighAccuracyCoordinates.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching high-accuracy coordinates'**
+  String get fetchingHighAccuracyCoordinates;
+
+  /// No description provided for @actionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Action Needed'**
+  String get actionNeeded;
+
+  /// No description provided for @disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get disabled;
+
+  /// No description provided for @pressToTriggerCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Press to trigger a 10-second emergency countdown.'**
+  String get pressToTriggerCountdown;
+
+  /// No description provided for @alertsTrustedContactsAndSiren.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts trusted contacts and sounds a siren.'**
+  String get alertsTrustedContactsAndSiren;
+
+  /// No description provided for @sosAlertActive.
+  ///
+  /// In en, this message translates to:
+  /// **'🚨 SOS ALERT ACTIVE'**
+  String get sosAlertActive;
+
+  /// No description provided for @pressAgainToCancelOrStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Press again to cancel or stop sharing location.'**
+  String get pressAgainToCancelOrStop;
+
+  /// No description provided for @keepSosReadyInBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep SOS ready in the background.'**
+  String get keepSosReadyInBackground;
+
+  /// No description provided for @staySafeStayStrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay Safe, Stay Strong'**
+  String get staySafeStayStrong;
+
+  /// No description provided for @yourSafetyMatters.
+  ///
+  /// In en, this message translates to:
+  /// **'Your safety matters. We\'\'re with you always.'**
+  String get yourSafetyMatters;
+
+  /// No description provided for @safetyFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Safety Features'**
+  String get safetyFeatures;
+
+  /// No description provided for @toolsToHelpYouStaySafe.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools to help you stay safe, wherever you go.'**
+  String get toolsToHelpYouStaySafe;
+
+  /// No description provided for @geoFencing.
+  ///
+  /// In en, this message translates to:
+  /// **'Geo Fencing'**
+  String get geoFencing;
+
+  /// No description provided for @geoFencingShortDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a safe perimeter around a location.'**
+  String get geoFencingShortDesc;
+
+  /// No description provided for @navigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation'**
+  String get navigation;
+
+  /// No description provided for @navigationShortDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Access safe routes and directions.'**
+  String get navigationShortDesc;
+
+  /// No description provided for @fakeCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Fake Call'**
+  String get fakeCall;
+
+  /// No description provided for @fakeCallShortDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule a simulated incoming call.'**
+  String get fakeCallShortDesc;
+
+  /// No description provided for @emergencyServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency'**
+  String get emergencyServices;
+
+  /// No description provided for @emergencyServicesShortDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick access to emergency services.'**
+  String get emergencyServicesShortDesc;
+
+  /// No description provided for @emergencyNumbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency Numbers'**
+  String get emergencyNumbers;
+
+  /// No description provided for @quickAccessToHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick access to help when you need it.'**
+  String get quickAccessToHelp;
+
+  /// No description provided for @searchEmergencyService.
+  ///
+  /// In en, this message translates to:
+  /// **'Search service or number (e.g., Police, 112)...'**
+  String get searchEmergencyService;
+
+  /// No description provided for @allInOneEmergency.
+  ///
+  /// In en, this message translates to:
+  /// **'All-in-One Emergency'**
+  String get allInOneEmergency;
+
+  /// No description provided for @allInOneDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'National single emergency response for Police, Fire & Medical distress.'**
+  String get allInOneDesc;
+
+  /// No description provided for @police.
+  ///
+  /// In en, this message translates to:
+  /// **'Police'**
+  String get police;
+
+  /// No description provided for @policeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediate police intervention, crime reporting & law enforcement assistance.'**
+  String get policeDesc;
+
+  /// No description provided for @ambulance.
+  ///
+  /// In en, this message translates to:
+  /// **'Ambulance'**
+  String get ambulance;
+
+  /// No description provided for @ambulanceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'24/7 free emergency medical services and patient transportation.'**
+  String get ambulanceDesc;
+
+  /// No description provided for @fireServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Fire Services'**
+  String get fireServices;
+
+  /// No description provided for @fireServicesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediate fire brigade dispatch and disaster rescue operations.'**
+  String get fireServicesDesc;
+
+  /// No description provided for @womenHelpline.
+  ///
+  /// In en, this message translates to:
+  /// **'Women Helpline'**
+  String get womenHelpline;
+
+  /// No description provided for @womenHelplineDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'24/7 emergency response, crisis intervention & support for women.'**
+  String get womenHelplineDesc;
+
+  /// No description provided for @childHelpline.
+  ///
+  /// In en, this message translates to:
+  /// **'Child Helpline'**
+  String get childHelpline;
+
+  /// No description provided for @childHelplineDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'National 24-hour toll-free emergency care & protection for children.'**
+  String get childHelplineDesc;
+
+  /// No description provided for @call.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get call;
+
+  /// No description provided for @couldNotOpenDialer.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open phone dialer for'**
+  String get couldNotOpenDialer;
+
+  /// No description provided for @failedToInitiateCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to initiate call:'**
+  String get failedToInitiateCall;
+
+  /// No description provided for @aiAssistant.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Assistant'**
+  String get aiAssistant;
+
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @userName.
+  ///
+  /// In en, this message translates to:
+  /// **'User Name'**
+  String get userName;
+
+  /// No description provided for @emailAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Email Address'**
+  String get emailAddress;
+
+  /// No description provided for @editName.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Name'**
+  String get editName;
+
+  /// No description provided for @confirmLogout.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Log Out'**
+  String get confirmLogout;
+
+  /// No description provided for @areYouSureYouWantToLogOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to log out?'**
+  String get areYouSureYouWantToLogOut;
+
+  /// No description provided for @deleteContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Contact'**
+  String get deleteContact;
+
+  /// No description provided for @areYouSureDeleteContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove this emergency contact?'**
+  String get areYouSureDeleteContact;
 }
 
 class _AppLocalizationsDelegate
