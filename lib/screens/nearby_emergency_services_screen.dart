@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
 import 'package:streetpartner/l10n/app_localizations.dart';
 import '../services/emergency_services_service.dart' as svc;
+import 'navigation_screen.dart';
 
 /// Nearby Emergency Services Screen — Instant-Load Background Prefetched Real-Time Search
 class NearbyEmergencyServicesScreen extends StatefulWidget {
@@ -41,18 +41,11 @@ class _ServiceItem {
 
 class _NearbyEmergencyServicesScreenState
     extends State<NearbyEmergencyServicesScreen> {
-  final MapController _navMapController = MapController();
-  
   String _selectedCategory = 'Police';
   bool _isLoading = true;
   String? _errorMessage;
   Position? _userPosition;
   StreamSubscription<Position>? _positionStream;
-
-  // In-App Navigation State
-  _ServiceItem? _selectedServiceForNav;
-  List<LatLng> _routePolyline = [];
-  bool _isFetchingRoute = false;
 
   final Map<String, List<_ServiceItem>> _servicesMap = {
     'Police': [],
@@ -450,91 +443,22 @@ class _NearbyEmergencyServicesScreenState
     }
   }
 
-  // ── IN-APP NAVIGATION ROUTE FETCH ──────────────────────────────────────────
-  Future<void> _startInAppNavigation(_ServiceItem item) async {
-    setState(() {
-      _selectedServiceForNav = item;
-      _isFetchingRoute = true;
-      _routePolyline = [];
-    });
-
-    final double uLat = _userPosition?.latitude ?? 16.5062;
-    final double uLng = _userPosition?.longitude ?? 80.6480;
-
-    final String osrmUrl =
-        'https://router.project-osrm.org/route/v1/driving/$uLng,$uLat;${item.lng},${item.lat}?geometries=geojson';
-
-    try {
-      final res = await http.get(Uri.parse(osrmUrl)).timeout(const Duration(seconds: 8));
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
-        final coords = data['routes'][0]['geometry']['coordinates'] as List;
-
-        List<LatLng> polyline = coords.map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble())).toList();
-
-        if (mounted) {
-          setState(() {
-            _routePolyline = polyline;
-            _isFetchingRoute = false;
-          });
-          _fitRouteBounds(uLat, uLng, item.lat, item.lng);
-        }
-      } else {
-        throw Exception('OSRM error');
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _routePolyline = [
-            LatLng(uLat, uLng),
-            LatLng(item.lat, item.lng),
-          ];
-          _isFetchingRoute = false;
-        });
-        _fitRouteBounds(uLat, uLng, item.lat, item.lng);
-      }
-    }
-  }
-
-  void _fitRouteBounds(double uLat, double uLng, double destLat, double destLng) {
-    final double midLat = (uLat + destLat) / 2.0;
-    final double midLng = (uLng + destLng) / 2.0;
-    final double distMeters = Geolocator.distanceBetween(uLat, uLng, destLat, destLng);
-    
-    double zoom = 13.5;
-    if (distMeters > 20000) {
-      zoom = 10.0;
-    } else if (distMeters > 10000) {
-      zoom = 11.5;
-    } else if (distMeters > 5000) {
-      zoom = 12.5;
-    } else if (distMeters > 2000) {
-      zoom = 13.5;
-    } else {
-      zoom = 14.5;
-    }
-
-    final double safeZoom = zoom.clamp(3.0, 18.0);
-    try {
-      _navMapController.move(LatLng(midLat, midLng), safeZoom);
-    } catch (e) {
-      debugPrint('MapController move deferred: $e');
-    }
-  }
-
-  void _closeNavigation() {
-    setState(() {
-      _selectedServiceForNav = null;
-      _routePolyline = [];
-    });
+  // ── IN-APP NAVIGATION: Opens Full-Featured Safe NavigationScreen ────────
+  void _startInAppNavigation(_ServiceItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NavigationScreen(
+          initialDestination: LatLng(item.lat, item.lng),
+          initialDestinationName: item.name,
+          autoStartDirections: true,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_selectedServiceForNav != null) {
-      return _buildInAppNavigationView(context, _selectedServiceForNav!);
-    }
-
     final currentList = _servicesMap[_selectedCategory] ?? [];
     final int targetCount = _selectedCategory == 'Police' ? 10 : (_selectedCategory == 'Hospital' ? 15 : 5);
 
@@ -715,265 +639,6 @@ class _NearbyEmergencyServicesScreenState
       ),
     );
   }
-
-  // ── IN-APP NAVIGATION VIEW SCREEN ───────────────────────────────────────────
-  Widget _buildInAppNavigationView(BuildContext context, _ServiceItem item) {
-    final LatLng userLoc = LatLng(
-      _userPosition?.latitude ?? 16.5062,
-      _userPosition?.longitude ?? 80.6480,
-    );
-    final LatLng stationLoc = LatLng(item.lat, item.lng);
-
-    final int etaMins = (item.distanceKm / 0.5).round().clamp(1, 120);
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.onBackground),
-          onPressed: _closeNavigation,
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.name,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.onBackground,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              'Emergency Navigation • ${item.distanceKm.toStringAsFixed(1)} km away',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 1. Navigation Status Bar
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.navigation_rounded, color: Colors.white, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'ESTIMATED TIME: ~$etaMins MINS (${item.distanceKm.toStringAsFixed(1)} KM)',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // 2. OpenStreetMap Viewport (Expanded)
-            Expanded(
-              child: Stack(
-                children: [
-                  FlutterMap(
-                    mapController: _navMapController,
-                    options: MapOptions(
-                      initialCenter: LatLng(
-                        (userLoc.latitude + stationLoc.latitude) / 2,
-                        (userLoc.longitude + stationLoc.longitude) / 2,
-                      ),
-                      initialZoom: 13.0,
-                      minZoom: 3.0,
-                      maxZoom: 18.0,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.streetpartner',
-                      ),
-                      if (_routePolyline.isNotEmpty)
-                        PolylineLayer(
-                          polylines: [
-                            Polyline(
-                              points: _routePolyline,
-                              color: Colors.blue.shade700,
-                              strokeWidth: 4.5,
-                            ),
-                          ],
-                        ),
-                      MarkerLayer(
-                        markers: [
-                          // User Location 👤
-                          Marker(
-                            point: userLoc,
-                            width: 44,
-                            height: 44,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade600,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
-                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                              ),
-                              child: const Icon(Icons.person_rounded, color: Colors.white, size: 20),
-                            ),
-                          ),
-                          // Target Station Pin 🚔/🏥/🚒
-                          Marker(
-                            point: stationLoc,
-                            width: 48,
-                            height: 48,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade700,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
-                                boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6)],
-                              ),
-                              child: Icon(
-                                _selectedCategory == 'Police'
-                                    ? Icons.local_police_rounded
-                                    : (_selectedCategory == 'Hospital'
-                                        ? Icons.local_hospital_rounded
-                                        : Icons.local_fire_department_rounded),
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  // Floating Map Action Buttons
-                  Positioned(
-                    right: 14,
-                    bottom: 14,
-                    child: Column(
-                      children: [
-                        FloatingActionButton.small(
-                          heroTag: 'btn_nav_north',
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.red.shade700,
-                          onPressed: () {
-                            try {
-                              _navMapController.rotate(0.0);
-                            } catch (_) {}
-                          },
-                          child: const Icon(Icons.navigation_rounded),
-                        ),
-                        const SizedBox(height: 8),
-                        FloatingActionButton.small(
-                          heroTag: 'btn_fit_route',
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppTheme.primary,
-                          onPressed: () => _fitRouteBounds(userLoc.latitude, userLoc.longitude, stationLoc.latitude, stationLoc.longitude),
-                          child: const Icon(Icons.zoom_out_map_rounded),
-                        ),
-                        const SizedBox(height: 8),
-                        FloatingActionButton.small(
-                          heroTag: 'btn_user_loc',
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.blue.shade700,
-                          onPressed: () {
-                            try {
-                              _navMapController.move(userLoc, 15.0);
-                            } catch (_) {}
-                          },
-                          child: const Icon(Icons.my_location_rounded),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (_isFetchingRoute)
-                    Container(
-                      color: Colors.black12,
-                      child: const Center(
-                        child: CircularProgressIndicator(color: AppTheme.primary),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // 3. Anchored Bottom Navigation Controls
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 10, offset: const Offset(0, -4))],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined, color: AppTheme.primary, size: 18),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          item.address,
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.onBackground),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.phone_outlined, color: Colors.grey, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Phone: ${item.phone}',
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: FilledButton.icon(
-                      onPressed: _closeNavigation,
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      label: Text(AppLocalizations.of(context)?.exitInappNavigation ?? 'EXIT IN-APP NAVIGATION'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildCategoryTab(String category, IconData icon) {
     final bool isSelected = _selectedCategory == category;
     return Expanded(

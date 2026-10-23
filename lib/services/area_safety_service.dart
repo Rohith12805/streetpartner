@@ -133,6 +133,7 @@ class AreaSafetyService {
       int totalRatings = 0;
       double ratingSum = 0.0;
       Map<String, int> issueCounts = {};
+      int sosCount = 0;
 
       if (cellSnapshot.exists && cellSnapshot.data() != null) {
         final existingCell =
@@ -140,6 +141,7 @@ class AreaSafetyService {
         totalRatings = existingCell.totalRatings;
         ratingSum = existingCell.ratingSum;
         issueCounts = Map<String, int>.from(existingCell.issueCounts);
+        sosCount = existingCell.sosCount;
       }
 
       // If not anonymous, remove all existing reviews by this user to avoid duplicates
@@ -181,6 +183,7 @@ class AreaSafetyService {
         ratingSum: ratingSum,
         averageRating: averageRating,
         issueCounts: issueCounts,
+        sosCount: sosCount,
       );
 
       // Write changes
@@ -208,6 +211,7 @@ class AreaSafetyService {
         int totalRatings = (existingCell.totalRatings - 1).clamp(0, 999999999);
         double ratingSum = (existingCell.ratingSum - reviewToDelete.rating).clamp(0.0, 999999999.0);
         Map<String, int> issueCounts = Map<String, int>.from(existingCell.issueCounts);
+        int sosCount = existingCell.sosCount;
 
         for (var issue in reviewToDelete.issues) {
           if (issueCounts.containsKey(issue)) {
@@ -228,6 +232,7 @@ class AreaSafetyService {
           ratingSum: ratingSum,
           averageRating: averageRating,
           issueCounts: issueCounts,
+          sosCount: sosCount,
         );
 
         transaction.set(cellDocRef, updatedCell.toMap(), SetOptions(merge: true));

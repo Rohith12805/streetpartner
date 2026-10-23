@@ -7,6 +7,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/sos_service.dart';
+import '../services/admin_database_service.dart';
 import '../theme/app_theme.dart';
 
 enum NavState {
@@ -23,6 +27,12 @@ enum PointerTarget {
 enum SearchTarget {
   from,
   to,
+}
+
+class _RouteGeometry {
+  final List<LatLng> polyline;
+  final double distanceMeters;
+  const _RouteGeometry({required this.polyline, required this.distanceMeters});
 }
 
 class NavigationRoute {
@@ -52,7 +62,16 @@ class NavigationRoute {
 }
 
 class NavigationScreen extends StatefulWidget {
-  const NavigationScreen({super.key});
+  final LatLng? initialDestination;
+  final String? initialDestinationName;
+  final bool autoStartDirections;
+
+  const NavigationScreen({
+    super.key,
+    this.initialDestination,
+    this.initialDestinationName,
+    this.autoStartDirections = false,
+  });
 
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();
@@ -90,15 +109,34 @@ class _NavigationScreenState extends State<NavigationScreen> {
   int _offTrackConsecutiveCount = 0;
   String? _navStatusText;
   Timer? _statusResetTimer;
+  int _passedPolylineIndex = 0;
+  DateTime? _lastRerouteAttemptTime;
+  bool _hasArrived = false;
+
+  // Route Fencing Safety State
+  bool _isRouteFencingEnabled = false;
+  bool _isCountdownActive = false;
+  final ValueNotifier<int> _countdownNotifier = ValueNotifier<int>(10);
+  Timer? _countdownTimer;
+  BuildContext? _countdownDialogContext;
+  String _activeLightingPeriodName = 'Evening';
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialDestination != null) {
+      _toPoint = widget.initialDestination;
+      if (widget.initialDestinationName != null) {
+        _toCtrl.text = widget.initialDestinationName!;
+      }
+    }
     _initUserLocation();
   }
 
   @override
   void dispose() {
+    _stopCountdownAndSiren();
+    _countdownNotifier.dispose();
     _statusResetTimer?.cancel();
     _positionStream?.cancel();
     _searchDebounce?.cancel();
@@ -123,6 +161,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
           _fromPoint = loc;
         });
         _safeMoveMap(loc, 15.0);
+
+        if (widget.autoStartDirections && _toPoint != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _fetchDirections();
+            }
+          });
+        }
       }
 
       _positionStream = Geolocator.getPositionStream(
@@ -138,13 +184,21 @@ class _NavigationScreenState extends State<NavigationScreen> {
         });
 
         if (_navState == NavState.journeyActive) {
-          _safeMoveMap(newLoc, 16.5);
+          _checkArrival(newLoc);
           // Check for off-track deviation and automatically rejoin chosen route
           _checkOffTrackAndRejoin(newLoc);
         }
       });
     } catch (e) {
       debugPrint('Location error: $e');
+      if (widget.autoStartDirections && _toPoint != null && mounted) {
+        _fromPoint ??= _currentLocation;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _fetchDirections();
+          }
+        });
+      }
     }
   }
 
@@ -160,23 +214,565 @@ class _NavigationScreenState extends State<NavigationScreen> {
     });
   }
 
-  // ── Off-Track Deviation Detection & Rejoining Chosen Route ──
+  // ── Arrival Detection ──────────────────────────────────────────
+  void _checkArrival(LatLng userLoc) {
+    if (_hasArrived || _toPoint == null) return;
+    final distToDest = Geolocator.distanceBetween(
+      userLoc.latitude,
+      userLoc.longitude,
+      _toPoint!.latitude,
+      _toPoint!.longitude,
+    );
+    if (distToDest <= 30.0) {
+      setState(() {
+        _hasArrived = true;
+        _navStatusText = 'You have arrived!';
+      });
+    }
+  }
+
+  // ── Off-Track Deviation Detection & Cooldown Protected Rerouting ──
   void _checkOffTrackAndRejoin(LatLng userLoc) {
-    if (_routes.isEmpty || _isRerouting) return;
+    if (_routes.isEmpty || _isRerouting || _hasArrived || _navState != NavState.journeyActive) return;
     final currentRoute = _routes[_selectedRouteIndex.clamp(0, _routes.length - 1)];
     if (currentRoute.polyline.length < 2) return;
 
+    // Minimum 5-second cooldown between reroute attempts to prevent GPS loop flickering
+    if (_lastRerouteAttemptTime != null &&
+        DateTime.now().difference(_lastRerouteAttemptTime!).inSeconds < 5) {
+      return;
+    }
+
     final distToRoute = _distanceToPolyline(userLoc, currentRoute.polyline);
 
-    // If user is more than 65 meters away from the selected route line
-    if (distToRoute > 65.0) {
+    // If user is more than 60 meters away from the active route line
+    if (distToRoute > 60.0) {
       _offTrackConsecutiveCount++;
-      if (_offTrackConsecutiveCount >= 2 && !_isRerouting) {
-        _rejoinActiveRoute(userLoc, currentRoute);
+      // Require 3 consecutive off-track readings to filter out single-point GPS jumps
+      if (_offTrackConsecutiveCount >= 3) {
+        _offTrackConsecutiveCount = 0; // Reset immediately so failure doesn't loop
+        _lastRerouteAttemptTime = DateTime.now();
+
+        if (_isRouteFencingEnabled) {
+          // Route Fencing is Active: Trigger 10-second deviation countdown!
+          _triggerRouteFencingCountdown(userLoc, currentRoute);
+        } else {
+          // Standard Mode: Silently and smoothly reroute
+          _rejoinOrReroute(userLoc, currentRoute);
+        }
       }
     } else if (distToRoute < 35.0) {
       _offTrackConsecutiveCount = 0;
     }
+  }
+
+  // ── Route Fencing 10-Second Countdown & SOS Dispatch ───────────────
+  void _triggerRouteFencingCountdown(LatLng userLoc, NavigationRoute currentRoute) {
+    if (_isCountdownActive) return;
+
+    _isCountdownActive = true;
+    _countdownNotifier.value = 10;
+
+    // Play native siren alarm
+    SosService.playSiren();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        _countdownDialogContext = dialogCtx;
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 28),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'ROUTE DEVIATION',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'You have moved off your safe protected route!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Color(0xFF334155)),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shield_rounded, size: 14, color: Color(0xFFDC2626)),
+                    SizedBox(width: 4),
+                    Text(
+                      'Triggered by: Route Fencing',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        color: Color(0xFFDC2626),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Circular countdown timer badge
+              ValueListenableBuilder<int>(
+                valueListenable: _countdownNotifier,
+                builder: (context, seconds, _) {
+                  return Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFFEF2F2),
+                      border: Border.all(color: const Color(0xFFDC2626), width: 4),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33DC2626),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$seconds',
+                      style: const TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFDC2626),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Tap REROUTE to update your path, or SEND NOW to dispatch emergency SOS immediately.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+              ),
+            ],
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          actions: [
+            Row(
+              children: [
+                // "SEND NOW" button: Immediately dispatches SOS & ends navigation
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.sos_rounded, color: Colors.white, size: 20),
+                    label: const Text(
+                      'SEND NOW',
+                      style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 13),
+                    ),
+                    onPressed: () {
+                      _stopCountdownAndSiren();
+                      if (Navigator.of(dialogCtx, rootNavigator: true).canPop()) {
+                        Navigator.of(dialogCtx, rootNavigator: true).pop();
+                      }
+                      _countdownDialogContext = null;
+                      _dispatchRouteFencingSos();
+                      _terminateNavigationDueToSos();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // "REROUTE" button: stops countdown & recalculates route
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2A73E1),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.alt_route_rounded, color: Colors.white, size: 18),
+                    label: const Text(
+                      'REROUTE',
+                      style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 13),
+                    ),
+                    onPressed: () {
+                      _stopCountdownAndSiren();
+                      if (Navigator.of(dialogCtx, rootNavigator: true).canPop()) {
+                        Navigator.of(dialogCtx, rootNavigator: true).pop();
+                      }
+                      _countdownDialogContext = null;
+                      // Instantly recalculate route to destination
+                      _rejoinOrReroute(userLoc, currentRoute);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || !_isCountdownActive) {
+        timer.cancel();
+        return;
+      }
+
+      if (_countdownNotifier.value > 1) {
+        _countdownNotifier.value--;
+      } else {
+        // Countdown completed (10 seconds expired): Dispatches SOS & Ends Navigation!
+        timer.cancel();
+        _stopCountdownAndSiren();
+
+        if (_countdownDialogContext != null &&
+            Navigator.of(_countdownDialogContext!, rootNavigator: true).canPop()) {
+          Navigator.of(_countdownDialogContext!, rootNavigator: true).pop();
+        }
+        _countdownDialogContext = null;
+
+        _dispatchRouteFencingSos();
+        _terminateNavigationDueToSos();
+      }
+    });
+  }
+
+  void _stopCountdownAndSiren() {
+    _countdownTimer?.cancel();
+    _isCountdownActive = false;
+    SosService.stopSiren();
+  }
+
+  Future<void> _dispatchRouteFencingSos() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> targetNumbers = prefs.getStringList('cached_emergency_contacts') ?? [];
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid ?? 'unknown';
+
+      String userName = 'User';
+      String bloodGroup = 'Unknown';
+      String mobileNumber = '';
+
+      if (user != null) {
+        try {
+          final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            final data = doc.data() as Map<String, dynamic>;
+            userName = data['name'] ?? user.displayName ?? 'User';
+            bloodGroup = data['bloodGroup'] ?? 'Unknown';
+            mobileNumber = data['mobileNumber'] ?? '';
+            final contacts = List<String>.from(data['emergencyContacts'] ?? []);
+            if (contacts.isNotEmpty) {
+              targetNumbers = contacts;
+              await prefs.setStringList('cached_emergency_contacts', contacts);
+            }
+          }
+        } catch (e) {
+          debugPrint('User doc fetch note: $e');
+        }
+      }
+
+      final locLink = 'https://maps.google.com/?q=${_currentLocation.latitude},${_currentLocation.longitude}';
+      final alertMsg = 'EMERGENCY SOS: Route Fencing Breached! $userName deviated from safe route. Location: $locLink';
+
+      // 1. Native SOS Alert (SMS & Calls)
+      await SosService.triggerSosAlert(
+        phoneNumbers: targetNumbers,
+        message: alertMsg,
+        userId: userId,
+      );
+
+      // 2. Report to Admin Emergency Dashboard
+      await AdminDatabaseService.reportEmergencyToAdmin(
+        userId: userId,
+        userName: userName,
+        bloodGroup: bloodGroup,
+        mobileNumber: mobileNumber,
+        liveLocationLink: locLink,
+        lat: _currentLocation.latitude,
+        lng: _currentLocation.longitude,
+        triggerSource: 'Route Fencing',
+      );
+    } catch (e) {
+      debugPrint('Route Fencing SOS dispatch error: $e');
+    }
+  }
+
+  void _terminateNavigationDueToSos() {
+    setState(() {
+      _navState = NavState.settingDirection;
+      _routes = [];
+      _passedPolylineIndex = 0;
+      _offTrackConsecutiveCount = 0;
+      _lastRerouteAttemptTime = null;
+      _isRerouting = false;
+      _isRouteFencingEnabled = false;
+      _hasArrived = false;
+      _navStatusText = null;
+    });
+
+    _safeMoveMap(_currentLocation, 15.0);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.shield_rounded, color: Colors.white, size: 24),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'EMERGENCY SOS DISPATCHED! Route Fencing breached. Navigation ended.',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 8),
+        ),
+      );
+    }
+  }
+
+  // ── Smart Rejoin with Full Reroute Fallback (ORS -> OSRM) ──
+  Future<void> _rejoinOrReroute(LatLng userLoc, NavigationRoute currentRoute) async {
+    _statusResetTimer?.cancel();
+    setState(() {
+      _isRerouting = true;
+      _navStatusText = 'Rejoining ${currentRoute.label}...';
+    });
+
+    try {
+      final poly = currentRoute.polyline;
+      final toPoint = _toPoint ?? poly.last;
+      final distToRoute = _distanceToPolyline(userLoc, poly);
+
+      // Strategy 1: Smart downstream rejoin if user is within 180m and polyline is substantial
+      if (distToRoute < 180.0 && poly.length > 5) {
+        final closestIdx = _findClosestPolylineIndex(userLoc, poly);
+
+        // Find a rejoin point ~250m to 450m ahead along the polyline from closestIdx
+        int targetRejoinIdx = closestIdx;
+        double accumulatedDist = 0.0;
+        for (int i = closestIdx; i < poly.length - 1; i++) {
+          accumulatedDist += Geolocator.distanceBetween(
+            poly[i].latitude,
+            poly[i].longitude,
+            poly[i + 1].latitude,
+            poly[i + 1].longitude,
+          );
+          targetRejoinIdx = i + 1;
+          if (accumulatedDist >= 300.0) break;
+        }
+
+        if (targetRejoinIdx < poly.length - 2) {
+          final rejoinPoint = poly[targetRejoinIdx];
+          final connRes = await _fetchRouteGeometry(userLoc, rejoinPoint);
+
+          if (connRes != null && connRes.polyline.isNotEmpty) {
+            final remainingPoly = (targetRejoinIdx + 1 < poly.length)
+                ? poly.sublist(targetRejoinIdx + 1)
+                : <LatLng>[];
+
+            final stitchedPoly = [...connRes.polyline, ...remainingPoly];
+            final remainingDist = _calculatePolylineDistance(stitchedPoly);
+
+            final updatedRoute = NavigationRoute(
+              index: currentRoute.index,
+              label: currentRoute.label,
+              polyline: stitchedPoly,
+              totalDistanceMeters: remainingDist,
+              ratedDistanceMeters: currentRoute.ratedDistanceMeters,
+              coveragePercentage: currentRoute.coveragePercentage,
+              avgLighting: currentRoute.avgLighting,
+              avgCrime: currentRoute.avgCrime,
+              avgPopulation: currentRoute.avgPopulation,
+              avgServices: currentRoute.avgServices,
+            );
+
+            if (mounted) {
+              setState(() {
+                _routes[_selectedRouteIndex] = updatedRoute;
+                _passedPolylineIndex = 0;
+                _isRerouting = false;
+                _offTrackConsecutiveCount = 0;
+                _navStatusText = 'Rejoined ${currentRoute.label}';
+              });
+              _statusResetTimer?.cancel();
+              _statusResetTimer = Timer(const Duration(seconds: 4), () {
+                if (mounted) setState(() => _navStatusText = null);
+              });
+              return;
+            }
+          }
+        }
+      }
+
+      // Strategy 2: Full Reroute directly from current location to destination
+      if (mounted) {
+        setState(() {
+          _navStatusText = 'Recalculating route...';
+        });
+      }
+
+      final directRes = await _fetchRouteGeometry(userLoc, toPoint);
+      if (directRes != null && directRes.polyline.isNotEmpty) {
+        final updatedRoute = NavigationRoute(
+          index: currentRoute.index,
+          label: currentRoute.label,
+          polyline: directRes.polyline,
+          totalDistanceMeters: directRes.distanceMeters,
+          ratedDistanceMeters: currentRoute.ratedDistanceMeters,
+          coveragePercentage: currentRoute.coveragePercentage,
+          avgLighting: currentRoute.avgLighting,
+          avgCrime: currentRoute.avgCrime,
+          avgPopulation: currentRoute.avgPopulation,
+          avgServices: currentRoute.avgServices,
+        );
+
+        if (mounted) {
+          setState(() {
+            _routes[_selectedRouteIndex] = updatedRoute;
+            _passedPolylineIndex = 0;
+            _isRerouting = false;
+            _offTrackConsecutiveCount = 0;
+            _navStatusText = 'Route updated';
+          });
+          _statusResetTimer?.cancel();
+          _statusResetTimer = Timer(const Duration(seconds: 4), () {
+            if (mounted) setState(() => _navStatusText = null);
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Rejoin/Reroute error: $e');
+    }
+
+    // Fallback: If both smart rejoin and full reroute failed (offline or network glitch)
+    if (mounted) {
+      setState(() {
+        _isRerouting = false;
+        _offTrackConsecutiveCount = 0;
+        _navStatusText = 'Rerouting unavailable';
+      });
+      _statusResetTimer?.cancel();
+      _statusResetTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _navStatusText = null);
+      });
+    }
+  }
+
+  // ── Fetch Route Geometry with ORS primary and OSRM fallback ──────
+  Future<_RouteGeometry?> _fetchRouteGeometry(LatLng origin, LatLng dest) async {
+    // 1. Try OpenRouteService
+    try {
+      final orsUrl = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
+      final orsBody = jsonEncode({
+        'coordinates': [
+          [origin.longitude, origin.latitude],
+          [dest.longitude, dest.latitude],
+        ]
+      });
+
+      final orsRes = await http.post(
+        Uri.parse(orsUrl),
+        headers: {
+          'Authorization': _orsApiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, application/geo+json',
+        },
+        body: orsBody,
+      ).timeout(const Duration(seconds: 5));
+
+      if (orsRes.statusCode == 200) {
+        final orsData = jsonDecode(orsRes.body);
+        final features = orsData['features'] as List<dynamic>? ?? [];
+        if (features.isNotEmpty) {
+          final coords = features[0]['geometry']['coordinates'] as List;
+          final poly = coords
+              .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+              .toList();
+          final dist = (features[0]['properties']['summary']['distance'] as num?)?.toDouble() ?? 0.0;
+          return _RouteGeometry(polyline: poly, distanceMeters: dist);
+        }
+      }
+    } catch (e) {
+      debugPrint('ORS route fetch note: $e');
+    }
+
+    // 2. Fallback to OSRM (Reliable public fallback)
+    try {
+      final osrmUrl = 'http://router.project-osrm.org/route/v1/driving/'
+          '${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}'
+          '?overview=full&geometries=geojson';
+      final osrmRes = await http.get(Uri.parse(osrmUrl)).timeout(const Duration(seconds: 5));
+
+      if (osrmRes.statusCode == 200) {
+        final osrmData = jsonDecode(osrmRes.body);
+        final routes = osrmData['routes'] as List<dynamic>? ?? [];
+        if (routes.isNotEmpty) {
+          final coords = routes[0]['geometry']['coordinates'] as List;
+          final poly = coords
+              .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+              .toList();
+          final dist = (routes[0]['distance'] as num?)?.toDouble() ?? 0.0;
+          return _RouteGeometry(polyline: poly, distanceMeters: dist);
+        }
+      }
+    } catch (e) {
+      debugPrint('OSRM route fetch note: $e');
+    }
+
+    return null;
+  }
+
+  // ── Polyline Math & Projection Helpers ─────────────────────────────
+  LatLng _projectOnSegment(LatLng p, LatLng a, LatLng b) {
+    final dAB = Geolocator.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude);
+    if (dAB == 0) return a;
+    final x = (b.longitude - a.longitude) * cos((a.latitude + b.latitude) * pi / 360);
+    final y = b.latitude - a.latitude;
+    final px = (p.longitude - a.longitude) * cos((a.latitude + b.latitude) * pi / 360);
+    final py = p.latitude - a.latitude;
+
+    final t = ((px * x + py * y) / (x * x + y * y)).clamp(0.0, 1.0);
+    final projLat = a.latitude + t * (b.latitude - a.latitude);
+    final projLng = a.longitude + t * (b.longitude - a.longitude);
+    return LatLng(projLat, projLng);
+  }
+
+  double _distanceToSegment(LatLng p, LatLng a, LatLng b) {
+    final proj = _projectOnSegment(p, a, b);
+    return Geolocator.distanceBetween(p.latitude, p.longitude, proj.latitude, proj.longitude);
   }
 
   double _distanceToPolyline(LatLng point, List<LatLng> polyline) {
@@ -189,22 +785,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
       }
     }
     return minDistance;
-  }
-
-  double _distanceToSegment(LatLng p, LatLng a, LatLng b) {
-    final dAB = Geolocator.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude);
-    if (dAB == 0) {
-      return Geolocator.distanceBetween(p.latitude, p.longitude, a.latitude, a.longitude);
-    }
-    final x = (b.longitude - a.longitude) * cos((a.latitude + b.latitude) * pi / 360);
-    final y = b.latitude - a.latitude;
-    final px = (p.longitude - a.longitude) * cos((a.latitude + b.latitude) * pi / 360);
-    final py = p.latitude - a.latitude;
-
-    final t = ((px * x + py * y) / (x * x + y * y)).clamp(0.0, 1.0);
-    final projLat = a.latitude + t * (b.latitude - a.latitude);
-    final projLng = a.longitude + t * (b.longitude - a.longitude);
-    return Geolocator.distanceBetween(p.latitude, p.longitude, projLat, projLng);
   }
 
   int _findClosestPolylineIndex(LatLng point, List<LatLng> polyline) {
@@ -221,102 +801,98 @@ class _NavigationScreenState extends State<NavigationScreen> {
     return closestIdx;
   }
 
-  Future<void> _rejoinActiveRoute(LatLng userLoc, NavigationRoute currentRoute) async {
-    setState(() {
-      _isRerouting = true;
-      _navStatusText = 'Rejoining ${currentRoute.label}...';
-    });
+  double _calculatePolylineDistance(List<LatLng> poly) {
+    if (poly.length < 2) return 0.0;
+    double dist = 0.0;
+    for (int i = 0; i < poly.length - 1; i++) {
+      dist += Geolocator.distanceBetween(
+        poly[i].latitude,
+        poly[i].longitude,
+        poly[i + 1].latitude,
+        poly[i + 1].longitude,
+      );
+    }
+    return dist;
+  }
 
-    try {
-      final poly = currentRoute.polyline;
-      final closestIdx = _findClosestPolylineIndex(userLoc, poly);
+  // ── Dynamic Navigation Polyline Trimming ───────────────────────────
+  // Returns remaining points starting AT user's live location up to destination
+  List<LatLng> _getRemainingPolyline(LatLng userLoc, List<LatLng> fullPolyline) {
+    if (fullPolyline.isEmpty) return [];
+    if (fullPolyline.length < 2) return [userLoc, ...fullPolyline];
 
-      // Choose a forward rejoin point on the route ahead of the user (~300m to 800m ahead)
-      final forwardIndexOffset = min(15, max(4, poly.length ~/ 15));
-      final rejoinIdx = min(poly.length - 1, closestIdx + forwardIndexOffset);
-      final rejoinPoint = poly[rejoinIdx];
+    int bestSegmentIdx = _passedPolylineIndex;
+    double minDistance = double.infinity;
+    LatLng bestProj = fullPolyline.first;
 
-      // Query connector path from current deviated position to rejoin point via ORS
-      final connUrl = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
-      final connBody = jsonEncode({
-        'coordinates': [
-          [userLoc.longitude, userLoc.latitude],
-          [rejoinPoint.longitude, rejoinPoint.latitude],
-        ]
-      });
+    // Search in forward window from _passedPolylineIndex to avoid jitter/jumping backward
+    final searchStart = max(0, _passedPolylineIndex - 1);
+    final searchEnd = min(fullPolyline.length - 1, _passedPolylineIndex + 40);
 
-      final connRes = await http.post(
-        Uri.parse(connUrl),
-        headers: {
-          'Authorization': _orsApiKey,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, application/geo+json',
-        },
-        body: connBody,
-      ).timeout(const Duration(seconds: 6));
+    for (int i = searchStart; i < searchEnd; i++) {
+      final pA = fullPolyline[i];
+      final pB = fullPolyline[i + 1];
+      final proj = _projectOnSegment(userLoc, pA, pB);
+      final d = Geolocator.distanceBetween(userLoc.latitude, userLoc.longitude, proj.latitude, proj.longitude);
+      if (d < minDistance) {
+        minDistance = d;
+        bestSegmentIdx = i;
+        bestProj = proj;
+      }
+    }
 
-      if (connRes.statusCode == 200) {
-        final connData = jsonDecode(connRes.body);
-        final features = connData['features'] as List<dynamic>? ?? [];
-        if (features.isNotEmpty) {
-          final connectorCoords = features[0]['geometry']['coordinates'] as List;
-          final connectorPoly = connectorCoords
-              .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
-              .toList();
-          final connDist = (features[0]['properties']['summary']['distance'] as num?)?.toDouble() ?? 0.0;
-
-          // Slice remaining downstream portion of the route from rejoinIdx + 1
-          final remainingPoly = (rejoinIdx + 1 < poly.length) ? poly.sublist(rejoinIdx + 1) : <LatLng>[];
-
-          // Compute remaining distance
-          double remainingDist = 0.0;
-          for (int s = rejoinIdx; s < poly.length - 1; s++) {
-            remainingDist += Geolocator.distanceBetween(
-                poly[s].latitude, poly[s].longitude, poly[s + 1].latitude, poly[s + 1].longitude);
-          }
-
-          // Combined stitched route: connector to rejoin point + remaining route to destination
-          final stitchedPoly = [...connectorPoly, ...remainingPoly];
-          final newTotalDistance = connDist + remainingDist;
-
-          final updatedRoute = NavigationRoute(
-            index: currentRoute.index,
-            label: currentRoute.label,
-            polyline: stitchedPoly,
-            totalDistanceMeters: newTotalDistance,
-            ratedDistanceMeters: currentRoute.ratedDistanceMeters,
-            coveragePercentage: currentRoute.coveragePercentage,
-            avgLighting: currentRoute.avgLighting,
-            avgCrime: currentRoute.avgCrime,
-            avgPopulation: currentRoute.avgPopulation,
-            avgServices: currentRoute.avgServices,
-          );
-
-          if (mounted) {
-            setState(() {
-              _routes[_selectedRouteIndex] = updatedRoute;
-              _isRerouting = false;
-              _offTrackConsecutiveCount = 0;
-              _navStatusText = 'Rejoined ${currentRoute.label}';
-            });
-            _statusResetTimer?.cancel();
-            _statusResetTimer = Timer(const Duration(seconds: 4), () {
-              if (mounted) setState(() => _navStatusText = null);
-            });
-            return;
-          }
+    // Fallback if user is far from local window (> 120m), search entire polyline
+    if (minDistance > 120.0) {
+      for (int i = 0; i < fullPolyline.length - 1; i++) {
+        final pA = fullPolyline[i];
+        final pB = fullPolyline[i + 1];
+        final proj = _projectOnSegment(userLoc, pA, pB);
+        final d = Geolocator.distanceBetween(userLoc.latitude, userLoc.longitude, proj.latitude, proj.longitude);
+        if (d < minDistance) {
+          minDistance = d;
+          bestSegmentIdx = i;
+          bestProj = proj;
         }
       }
-    } catch (e) {
-      debugPrint('Rejoin route error: $e');
     }
 
-    if (mounted) {
-      setState(() {
-        _isRerouting = false;
-        _navStatusText = null;
-      });
+    // Advance passed index monotonically
+    if (bestSegmentIdx > _passedPolylineIndex) {
+      _passedPolylineIndex = bestSegmentIdx;
     }
+
+    // Active guidance line begins directly at user's current live location
+    final remaining = <LatLng>[userLoc];
+
+    // If projection point is ahead and distinct, snap smoothly onto route centerline
+    final distProjToNext = (bestSegmentIdx + 1 < fullPolyline.length)
+        ? Geolocator.distanceBetween(
+            bestProj.latitude,
+            bestProj.longitude,
+            fullPolyline[bestSegmentIdx + 1].latitude,
+            fullPolyline[bestSegmentIdx + 1].longitude,
+          )
+        : 0.0;
+    if (distProjToNext > 5.0) {
+      remaining.add(bestProj);
+    }
+
+    if (bestSegmentIdx + 1 < fullPolyline.length) {
+      remaining.addAll(fullPolyline.sublist(bestSegmentIdx + 1));
+    } else {
+      remaining.add(fullPolyline.last);
+    }
+
+    return remaining;
+  }
+
+  // Traversed breadcrumb path behind user
+  List<LatLng> _getTraversedPolyline(LatLng userLoc, List<LatLng> fullPolyline) {
+    if (fullPolyline.isEmpty || _passedPolylineIndex <= 0) return [];
+    final traversed = <LatLng>[];
+    traversed.addAll(fullPolyline.sublist(0, min(_passedPolylineIndex + 1, fullPolyline.length)));
+    traversed.add(userLoc);
+    return traversed;
   }
 
   // Unified Photon Search autocomplete for both From and To fields
@@ -542,17 +1118,90 @@ class _NavigationScreenState extends State<NavigationScreen> {
       }
 
       // 4. Fetch road qualities from Firestore
-      final Map<String, Map<String, dynamic>> qualitiesMap = {};
+      final int currentHour = DateTime.now().hour;
+      final String activeTimePeriod;
+      final String periodKey;
+      if (currentHour >= 0 && currentHour < 6) {
+        activeTimePeriod = 'Before Dawn';
+        periodKey = 'before_dawn';
+      } else if (currentHour >= 6 && currentHour < 12) {
+        activeTimePeriod = 'Morning';
+        periodKey = 'morning';
+      } else if (currentHour >= 12 && currentHour < 17) {
+        activeTimePeriod = 'Afternoon';
+        periodKey = 'afternoon';
+      } else if (currentHour >= 17 && currentHour < 21) {
+        activeTimePeriod = 'Evening';
+        periodKey = 'evening';
+      } else {
+        activeTimePeriod = 'Late Night';
+        periodKey = 'late_night';
+      }
+
+      final List<Map<String, dynamic>> ratedRoads = [];
       try {
         final qualitiesSnap = await FirebaseFirestore.instance.collection('road_qualities').get();
         for (final doc in qualitiesSnap.docs) {
-          qualitiesMap[doc.id] = doc.data();
+          final q = doc.data();
+          double? qLat = (q['latitude'] as num?)?.toDouble() ??
+              (q['lat'] as num?)?.toDouble() ??
+              double.tryParse(q['latitude']?.toString() ?? '') ??
+              double.tryParse(q['lat']?.toString() ?? '');
+          double? qLng = (q['longitude'] as num?)?.toDouble() ??
+              (q['lng'] as num?)?.toDouble() ??
+              double.tryParse(q['longitude']?.toString() ?? '') ??
+              double.tryParse(q['lng']?.toString() ?? '');
+
+          if (qLat == null || qLng == null) {
+            final coordStr = q['coordinates']?.toString();
+            if (coordStr != null && coordStr.contains(',')) {
+              final parts = coordStr.split(',');
+              if (parts.length >= 2) {
+                qLat = double.tryParse(parts[0].trim());
+                qLng = double.tryParse(parts[1].trim());
+              }
+            } else if (doc.id.startsWith('coord_')) {
+              final parts = doc.id.replaceFirst('coord_', '').split('_');
+              if (parts.length >= 2) {
+                qLat = double.tryParse(parts[0]);
+                qLng = double.tryParse(parts[1]);
+              }
+            }
+          }
+
+          if (qLat != null && qLng != null) {
+            final fallbackL = (q['lighting'] as num?)?.toDouble() ?? 5.0;
+            final fallbackC = (q['crime'] as num?)?.toDouble() ?? 5.0;
+            final fallbackP = (q['population'] as num?)?.toDouble() ?? 5.0;
+            final fallbackS = (q['services'] as num?)?.toDouble() ?? 5.0;
+
+            final pMap = q['periods'] as Map<String, dynamic>?;
+            final pObj = pMap?[periodKey] as Map<String, dynamic>?;
+
+            final double scoreL = (q['lighting_$periodKey'] as num?)?.toDouble() ??
+                (pObj?['lighting'] as num?)?.toDouble() ?? fallbackL;
+            final double scoreC = (q['crime_$periodKey'] as num?)?.toDouble() ??
+                (pObj?['crime'] as num?)?.toDouble() ?? fallbackC;
+            final double scoreP = (q['population_$periodKey'] as num?)?.toDouble() ??
+                (pObj?['population'] as num?)?.toDouble() ?? fallbackP;
+            final double scoreS = (q['services_$periodKey'] as num?)?.toDouble() ??
+                (pObj?['services'] as num?)?.toDouble() ?? fallbackS;
+
+            ratedRoads.add({
+              'lat': qLat,
+              'lng': qLng,
+              'lighting': scoreL,
+              'crime': scoreC,
+              'population': scoreP,
+              'services': scoreS,
+            });
+          }
         }
       } catch (e) {
         debugPrint('Firestore road_qualities load warning: $e');
       }
 
-      // 5. Evaluate EXACTLY 3 routes with distance-weighted scores
+      // 5. Evaluate EXACTLY 3 routes with distance-weighted scores based on CURRENT TIME
       final List<NavigationRoute> evaluatedRoutes = [];
 
       for (int i = 0; i < 3; i++) {
@@ -568,115 +1217,33 @@ class _NavigationScreenState extends State<NavigationScreen> {
         double weightedServ = 0.0;
 
         // Distance-weighted safety scoring based on Firestore road qualities
-        for (int p = 0; p < polyline.length - 1; p++) {
-          final pA = polyline[p];
-          final pB = polyline[p + 1];
-          final segDist = Geolocator.distanceBetween(pA.latitude, pA.longitude, pB.latitude, pB.longitude);
+        // Only segments physically traversing within 40m corridor of rated roads are matched
+        if (ratedRoads.isNotEmpty) {
+          for (int p = 0; p < polyline.length - 1; p++) {
+            final pA = polyline[p];
+            final pB = polyline[p + 1];
+            final segDist = Geolocator.distanceBetween(pA.latitude, pA.longitude, pB.latitude, pB.longitude);
+            if (segDist <= 0) continue;
 
-          for (final entry in qualitiesMap.entries) {
-            final q = entry.value;
-            double? qLat = (q['latitude'] as num?)?.toDouble() ??
-                (q['lat'] as num?)?.toDouble() ??
-                double.tryParse(q['latitude']?.toString() ?? '') ??
-                double.tryParse(q['lat']?.toString() ?? '');
-            double? qLng = (q['longitude'] as num?)?.toDouble() ??
-                (q['lng'] as num?)?.toDouble() ??
-                double.tryParse(q['longitude']?.toString() ?? '') ??
-                double.tryParse(q['lng']?.toString() ?? '');
-
-            if (qLat == null || qLng == null) {
-              final coordStr = q['coordinates']?.toString();
-              if (coordStr != null && coordStr.contains(',')) {
-                final parts = coordStr.split(',');
-                if (parts.length >= 2) {
-                  qLat = double.tryParse(parts[0].trim());
-                  qLng = double.tryParse(parts[1].trim());
-                }
-              } else if (entry.key.startsWith('coord_')) {
-                final parts = entry.key.replaceFirst('coord_', '').split('_');
-                if (parts.length >= 2) {
-                  qLat = double.tryParse(parts[0]);
-                  qLng = double.tryParse(parts[1]);
-                }
-              } else if (entry.key == 'edge_2575431666_4641626003') {
-                qLat = 16.50468;
-                qLng = 80.60426;
-              } else if (entry.key == 'edge_7928555522_7928555522') {
-                qLat = 16.497986;
-                qLng = 80.630528;
-              }
-            }
-
-            bool isMatch = false;
-            if (qLat != null && qLng != null) {
-              final qPoint = LatLng(qLat, qLng);
+            for (final r in ratedRoads) {
+              final qPoint = LatLng(r['lat'] as double, r['lng'] as double);
               final distToSeg = _distanceToSegment(qPoint, pA, pB);
-              final distToA = Geolocator.distanceBetween(pA.latitude, pA.longitude, qLat, qLng);
-              final distToB = Geolocator.distanceBetween(pB.latitude, pB.longitude, qLat, qLng);
-              if (distToSeg <= 120 || distToA <= 150 || distToB <= 150) {
-                isMatch = true;
-              }
-            } else if (entry.key.contains(pA.latitude.toStringAsFixed(3))) {
-              isMatch = true;
-            }
 
-            if (isMatch) {
-              ratedDist += segDist;
-              weightedLighting += segDist * (num.tryParse(q['lighting']?.toString() ?? '0') ?? 0);
-              weightedCrime += segDist * (num.tryParse(q['crime']?.toString() ?? '0') ?? 0);
-              weightedPop += segDist * (num.tryParse(q['population']?.toString() ?? '0') ?? 0);
-              weightedServ += segDist * (num.tryParse(q['services']?.toString() ?? '0') ?? 0);
-              break;
+              if (distToSeg <= 40.0) {
+                ratedDist += segDist;
+                // Specific time ratings for Lighting, Crime, Crowd, and Services
+                weightedLighting += segDist * (r['lighting'] as double);
+                weightedCrime += segDist * (r['crime'] as double);
+                weightedPop += segDist * (r['population'] as double);
+                weightedServ += segDist * (r['services'] as double);
+                break; // Match once per segment to prevent duplicate distance accumulation
+              }
             }
           }
         }
 
-        // Vicinity fallback: If no direct segment intersect, check if route passes in vicinity (within 1000m) of any rated road
-        if (ratedDist == 0.0 && qualitiesMap.isNotEmpty) {
-          for (final entry in qualitiesMap.entries) {
-            final q = entry.value;
-            double? qLat = (q['latitude'] as num?)?.toDouble() ??
-                (q['lat'] as num?)?.toDouble() ??
-                double.tryParse(q['latitude']?.toString() ?? '') ??
-                double.tryParse(q['lat']?.toString() ?? '');
-            double? qLng = (q['longitude'] as num?)?.toDouble() ??
-                (q['lng'] as num?)?.toDouble() ??
-                double.tryParse(q['longitude']?.toString() ?? '') ??
-                double.tryParse(q['lng']?.toString() ?? '');
-
-            if (qLat == null || qLng == null) {
-              final coordStr = q['coordinates']?.toString();
-              if (coordStr != null && coordStr.contains(',')) {
-                final parts = coordStr.split(',');
-                if (parts.length >= 2) {
-                  qLat = double.tryParse(parts[0].trim());
-                  qLng = double.tryParse(parts[1].trim());
-                }
-              } else if (entry.key == 'edge_2575431666_4641626003') {
-                qLat = 16.50468;
-                qLng = 80.60426;
-              } else if (entry.key == 'edge_7928555522_7928555522') {
-                qLat = 16.497986;
-                qLng = 80.630528;
-              }
-            }
-
-            if (qLat != null && qLng != null) {
-              double minD = double.infinity;
-              for (final pt in polyline) {
-                final d = Geolocator.distanceBetween(pt.latitude, pt.longitude, qLat, qLng);
-                if (d < minD) minD = d;
-              }
-              if (minD <= 1000) {
-                final weight = (totalDistance > 0 ? totalDistance * 0.35 : 500.0);
-                ratedDist += weight;
-                weightedLighting += weight * (num.tryParse(q['lighting']?.toString() ?? '0') ?? 0);
-                weightedCrime += weight * (num.tryParse(q['crime']?.toString() ?? '0') ?? 0);
-                weightedPop += weight * (num.tryParse(q['population']?.toString() ?? '0') ?? 0);
-                weightedServ += weight * (num.tryParse(q['services']?.toString() ?? '0') ?? 0);
-              }
-            }
-          }
+        if (totalDistance > 0 && ratedDist > totalDistance) {
+          ratedDist = totalDistance;
         }
 
         final coveragePct = totalDistance > 0 ? (ratedDist / totalDistance) * 100 : 0.0;
@@ -704,6 +1271,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       }
 
       setState(() {
+        _activeLightingPeriodName = activeTimePeriod;
         _routes = evaluatedRoutes;
         _selectedRouteIndex = 0;
         _navState = NavState.routePreview;
@@ -763,10 +1331,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 
   void _startJourney() {
+    _stopCountdownAndSiren();
     setState(() {
       _navState = NavState.journeyActive;
+      _passedPolylineIndex = 0;
       _offTrackConsecutiveCount = 0;
+      _lastRerouteAttemptTime = null;
       _isRerouting = false;
+      _hasArrived = false;
       _navStatusText = null;
     });
     _safeMoveMap(_currentLocation, 16.5);
@@ -783,10 +1355,16 @@ class _NavigationScreenState extends State<NavigationScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
+              _stopCountdownAndSiren();
               setState(() {
                 _navState = NavState.settingDirection;
                 _routes = [];
+                _passedPolylineIndex = 0;
+                _offTrackConsecutiveCount = 0;
+                _lastRerouteAttemptTime = null;
                 _isRerouting = false;
+                _isRouteFencingEnabled = false;
+                _hasArrived = false;
                 _navStatusText = null;
               });
               _safeMoveMap(_currentLocation, 15.0);
@@ -831,23 +1409,51 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
               // Route Polylines
               if (_routes.isNotEmpty)
-                PolylineLayer(
-                  polylines: [
-                    // Muted lines for unselected routes
-                    for (int i = 0; i < _routes.length; i++)
-                      if (i != _selectedRouteIndex)
+                Builder(
+                  builder: (context) {
+                    final selRoute = _routes[_selectedRouteIndex.clamp(0, _routes.length - 1)];
+
+                    if (_navState == NavState.journeyActive) {
+                      final remainingPoly = _getRemainingPolyline(_currentLocation, selRoute.polyline);
+                      final traversedPoly = _getTraversedPolyline(_currentLocation, selRoute.polyline);
+
+                      return PolylineLayer(
+                        polylines: [
+                          // Traversed route behind user: faint muted gray trail
+                          if (traversedPoly.length >= 2)
+                            Polyline(
+                              points: traversedPoly,
+                              color: const Color(0x5094A3B8),
+                              strokeWidth: 4.0,
+                            ),
+                          // Active guidance ahead: starts directly from live current location to destination
+                          Polyline(
+                            points: remainingPoly,
+                            color: const Color(0xFF2A73E1),
+                            strokeWidth: 6.5,
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Route Preview mode: show alternative routes + full selected route
+                    return PolylineLayer(
+                      polylines: [
+                        for (int i = 0; i < _routes.length; i++)
+                          if (i != _selectedRouteIndex)
+                            Polyline(
+                              points: _routes[i].polyline,
+                              color: const Color(0xFF94A3B8),
+                              strokeWidth: 4.5,
+                            ),
                         Polyline(
-                          points: _routes[i].polyline,
-                          color: const Color(0xFF94A3B8),
-                          strokeWidth: 4.5,
+                          points: selRoute.polyline,
+                          color: const Color(0xFF2A73E1),
+                          strokeWidth: 6.5,
                         ),
-                    // Vibrant blue line for selected / active route
-                    Polyline(
-                      points: _routes[_selectedRouteIndex.clamp(0, _routes.length - 1)].polyline,
-                      color: const Color(0xFF2A73E1),
-                      strokeWidth: 6.5,
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
 
               // Markers with rotate: true to keep pointers upright when map is rotated
@@ -1384,18 +1990,26 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: covPct >= 50 ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                      color: covPct >= 50
+                          ? const Color(0xFFECFDF5)
+                          : (covPct > 0 ? const Color(0xFFFFFBEB) : const Color(0xFFF1F5F9)),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: covPct >= 50 ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A),
+                        color: covPct >= 50
+                            ? const Color(0xFFA7F3D0)
+                            : (covPct > 0 ? const Color(0xFFFDE68A) : const Color(0xFFCBD5E1)),
                       ),
                     ),
                     child: Text(
-                      covPct > 0 ? '${covPct.toStringAsFixed(0)}% Rated' : 'Unrated Road',
+                      covPct <= 0
+                          ? 'Unrated Road'
+                          : (covPct < 1 ? '< 1% Rated' : '${covPct.toStringAsFixed(0)}% Rated'),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: covPct >= 50 ? const Color(0xFF047857) : const Color(0xFFB45309),
+                        color: covPct >= 50
+                            ? const Color(0xFF047857)
+                            : (covPct > 0 ? const Color(0xFFB45309) : const Color(0xFF64748B)),
                       ),
                     ),
                   ),
@@ -1403,10 +2017,29 @@ class _NavigationScreenState extends State<NavigationScreen> {
               ),
               const SizedBox(height: 10),
 
-              // Individual Distance-Weighted Metric Reports
+              // Time of Day indicator & Individual Distance-Weighted Metric Reports
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Safety Ratings', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: Text(
+                      'Time: $_activeLightingPeriodName',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF2A73E1)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
               Row(
                 children: [
-                  _buildReportChip('💡 Lighting', selRoute.avgLighting),
+                  _buildReportChip('💡 Light', selRoute.avgLighting),
                   const SizedBox(width: 6),
                   _buildReportChip('🛡️ Crime', selRoute.avgCrime),
                   const SizedBox(width: 6),
@@ -1500,7 +2133,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _navStatusText ?? 'To: $destTitle',
+                  _navStatusText ?? (_hasArrived ? 'Arrived at $destTitle' : 'To: $destTitle'),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1508,9 +2141,36 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 Text(
                   _isRerouting
                       ? 'Finding fastest path back onto ${selRoute?.label ?? "route"}...'
-                      : (selRoute != null ? 'Following ${selRoute.label}' : 'Live GPS guidance active'),
+                      : (_hasArrived
+                          ? 'You have reached your destination'
+                          : (selRoute != null ? 'Following ${selRoute.label}' : 'Live GPS guidance active')),
                   style: const TextStyle(fontSize: 12, color: Colors.white70),
                 ),
+                if (_isRouteFencingEnabled) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDC2626),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.shield_rounded, size: 10, color: Colors.white),
+                            SizedBox(width: 3),
+                            Text(
+                              'ROUTE FENCING ACTIVE',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -1527,8 +2187,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
   // ── Active Journey Bottom Controls Card ───────────────────────────
   Widget _buildActiveJourneyBottomCard() {
     final selRoute = _routes[_selectedRouteIndex.clamp(0, _routes.length - 1)];
-    final distKm = (selRoute.totalDistanceMeters / 1000).toStringAsFixed(1);
-    final estMins = max(1, (selRoute.totalDistanceMeters / 600).round()); // ~35km/h estimate
+    final remainingPoly = _getRemainingPolyline(_currentLocation, selRoute.polyline);
+    final remainingMeters = _calculatePolylineDistance(remainingPoly);
+    final distKm = (remainingMeters / 1000).toStringAsFixed(1);
+    final estMins = max(1, (remainingMeters / 600).round()); // ~35km/h estimate
 
     return Container(
       decoration: const BoxDecoration(
@@ -1564,13 +2226,17 @@ class _NavigationScreenState extends State<NavigationScreen> {
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: _isRerouting ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                              color: _isRerouting
+                                  ? const Color(0xFFF59E0B)
+                                  : (_hasArrived ? const Color(0xFF10B981) : const Color(0xFF10B981)),
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _isRerouting ? 'Rejoining Route...' : 'Live Navigating',
+                            _isRerouting
+                                ? 'Rejoining Route...'
+                                : (_hasArrived ? 'Arrived at Destination' : 'Live Navigating'),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -1581,7 +2247,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$distKm km remaining',
+                        _hasArrived ? 'Destination Reached' : '$distKm km remaining',
                         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
                       ),
                     ],
@@ -1594,13 +2260,99 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       border: Border.all(color: const Color(0xFFBFDBFE)),
                     ),
                     child: Text(
-                      '~ $estMins mins',
+                      _hasArrived ? 'Arrived' : '~ $estMins mins',
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF2A73E1)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              // ── Route Fencing Safety Toggle Card ──
+              Container(
+                margin: const EdgeInsets.only(top: 14, bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _isRouteFencingEnabled ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _isRouteFencingEnabled ? const Color(0xFFFCA5A5) : const Color(0xFFE2E8F0),
+                    width: _isRouteFencingEnabled ? 1.5 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isRouteFencingEnabled ? Icons.shield_rounded : Icons.shield_outlined,
+                      color: _isRouteFencingEnabled ? const Color(0xFFDC2626) : const Color(0xFF64748B),
+                      size: 24,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Route Fencing',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _isRouteFencingEnabled ? const Color(0xFF991B1B) : const Color(0xFF1E293B),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: _isRouteFencingEnabled ? const Color(0xFFEF4444) : const Color(0xFF94A3B8),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _isRouteFencingEnabled ? 'PROTECTED' : 'OFF',
+                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _isRouteFencingEnabled
+                                ? 'Deviation starts 10s SOS countdown'
+                                : 'Auto-reroutes on path deviation',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _isRouteFencingEnabled ? const Color(0xFFB91C1C) : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: _isRouteFencingEnabled,
+                      activeTrackColor: const Color(0xFFDC2626),
+                      activeThumbColor: Colors.white,
+                      onChanged: (val) {
+                        setState(() {
+                          _isRouteFencingEnabled = val;
+                        });
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              val
+                                  ? '🛡️ Route Fencing Active: 10s countdown & SOS on deviation!'
+                                  : 'Route Fencing Disabled: Standard auto-rerouting active.',
+                            ),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: val ? const Color(0xFFDC2626) : const Color(0xFF1E293B),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
 
               // End Journey Button
               ElevatedButton.icon(

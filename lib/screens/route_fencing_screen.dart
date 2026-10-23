@@ -191,9 +191,9 @@ class _RouteFencingScreenState extends State<RouteFencingScreen> {
   }
 
   void _onMapPositionChanged(MapCamera position, bool hasGesture) {
-    if (!_isRouteActive && hasGesture && position.center != null) {
+    if (!_isRouteActive && hasGesture) {
       setState(() {
-        _destination = position.center!;
+        _destination = position.center;
       });
       
       _routeDebounce?.cancel();
